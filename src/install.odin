@@ -179,7 +179,7 @@ run_captured :: proc(command: []string) -> (code: int, out: string, ok: bool) {
 	{
 		sync.mutex_lock(&start_lock)
 		defer sync.mutex_unlock(&start_lock)
-		p, err = os.process_start({command = command, working_dir = filepath.dir(command[0]), stdout = f, stderr = f})
+		p, err = os.process_start({command = command, working_dir = filepath.dir(command[0]), env = child_env(), stdout = f, stderr = f})
 	}
 	os.close(f)
 	defer _ = os.remove(path)
