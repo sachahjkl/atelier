@@ -1,0 +1,92 @@
+name: CI
+
+# Every push to master and every pull request: ateliertool check (the changelog and the roadmap, odin check -vet of the
+# program for Linux and Windows and of the tool, the unit tests, a release build), then ateliertool live: the programs'
+# latest releases in a bundle, and every one installed for real by atelier, in a home of its own. On Windows: check,
+# then the release file made (the program and its bundle), kept as an artifact.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}   # (gh reads the programs' releases: ateliertool bundle)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - uses: actions/cache@v4
+        with:
+          path: ext/gui_toolkit/build/text
+          key: text-linux-nix-${{ hashFiles('ext/gui_toolkit/native/text/**', 'flake.lock') }}
+
+      - name: ateliertool check, live
+        run: |
+          nix develop --command sh -c '
+            set -e
+            mkdir -p build
+            odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool -vet
+            build/ateliertool check
+            build/ateliertool live
+          '
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: atelier-linux-x64-${{ github.sha }}
+          path: |
+            build/atelier
+            build/live/home/.local/share/applications/*.desktop
+          if-no-files-found: warn
+
+  windows:
+    name: Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: ./ext/gui_toolkit/.github/actions/setup-odin
+
+      - name: ateliertool check, package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool.exe -vet
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          build/ateliertool.exe check
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          build/ateliertool.exe package
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          # (the release file reads its own bundle: list asks each program's --status, nothing is installed)
+          $exe = (Get-ChildItem build/dist/atelier-*-windows-x64.exe).FullName
+          & $exe list | Out-Host
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: atelier-windows-x64-${{ github.sha }}
+          path: build/dist/*
+          if-no-files-found: warn

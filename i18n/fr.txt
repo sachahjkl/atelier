@@ -1,0 +1,171 @@
+# The texts in fr (docs/i18n.md). Written by the i18n command: a translation left empty is the English.
+language fr
+
+en This licence cannot be read from the bundle.
+fr Cette licence ne peut pas être lue dans le paquet.
+
+en After its install, the program says: %s
+fr Après son installation, le programme indique : %s
+
+en this system names no cache folder
+fr ce système n'indique aucun dossier de cache
+
+en the file cannot be read from the bundle
+fr le fichier ne peut pas être lu dans le paquet
+
+en the file in the bundle is damaged: its size or its SHA-256 differs
+fr le fichier du paquet est abîmé : sa taille ou son SHA-256 diffère
+
+en the scratch folder cannot be made
+fr le dossier de travail ne peut pas être créé
+
+en the file cannot be written to the scratch folder
+fr le fichier ne peut pas être écrit dans le dossier de travail
+
+en the file cannot be made runnable
+fr le fichier ne peut pas être rendu exécutable
+
+en the program does not start on this system
+fr le programme ne démarre pas sur ce système
+
+en the program did not answer
+fr le programme n'a pas répondu
+
+en The program does not start on this system.
+fr Le programme ne démarre pas sur ce système.
+
+en the file taken out cannot be read
+fr le fichier extrait ne peut pas être lu
+
+en the file taken out changed: its size or its SHA-256 differs
+fr le fichier extrait a changé : sa taille ou son SHA-256 diffère
+
+en The working man's tools · by Froment Software
+fr Les outils de l'artisan · par Froment Software
+
+en Programs
+fr Programmes
+
+en Licences
+fr Licences
+
+en Install
+fr Installation
+
+en The list of programs this copy of atelier carries cannot be read: download atelier again.
+fr La liste des programmes de cette copie d'atelier ne peut pas être lue : téléchargez atelier à nouveau.
+
+en This copy of atelier carries no programs: build it with ateliertool package.
+fr Cette copie d'atelier ne contient aucun programme : construisez-la avec ateliertool package.
+
+en atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed.
+fr atelier installe les programmes de Froment Software en une fois. Choisissez les programmes, lisez leurs licences, et chacun s'installe de lui-même, pour vous seul : aucun administrateur n'est nécessaire.
+
+en This copy carries %d program, made on %s.
+en+ This copy carries %d programs, made on %s.
+fr Cette copie contient %d programme, assemblée le %s.
+fr+ Cette copie contient %d programmes, assemblée le %s.
+
+en Each program updates itself once it is installed.
+fr Chaque programme se met à jour de lui-même une fois installé.
+
+en Choose the programs to install.
+fr Choisissez les programmes à installer.
+
+en Select all
+fr Tout cocher
+
+en Select none
+fr Tout décocher
+
+en This system is NixOS: Nix is the better install, it updates the programs with the system. Add each one with Nix, or install them from here:
+fr Ce système est NixOS : Nix est la meilleure installation, il met les programmes à jour avec le système. Ajoutez chacun avec Nix, ou installez-les d'ici :
+
+en Copied
+fr Copié
+
+en Copy
+fr Copier
+
+en Cannot be read here
+fr Illisible ici
+
+en Read the licence of each program chosen, and of what it includes. Accept them to install the programs.
+fr Lisez la licence de chaque programme choisi, et de ce qu'il inclut. Acceptez-les pour installer les programmes.
+
+en Reading the licences…
+fr Lecture des licences…
+
+en This program carries no licence file.
+fr Ce programme n'a aucun fichier de licence.
+
+en Installing: %d of %d done
+fr Installation : %d sur %d terminés
+
+en The programs install themselves side by side. If you close the window, those under way end their install first.
+fr Les programmes s'installent côte à côte. Si vous fermez la fenêtre, ceux en cours terminent d'abord leur installation.
+
+en Unpack
+fr Extraire
+
+en Check
+fr Vérifier
+
+en Failed
+fr Échec
+
+en Waiting
+fr En attente
+
+en Installing…
+fr Installation…
+
+en Installed
+fr Installé
+
+en Done: %d program is installed.
+en+ Done: %d programs are installed.
+fr Terminé : %d programme est installé.
+fr+ Terminé : %d programmes sont installés.
+
+en %d installed, %d failed.
+fr %d installés, %d en échec.
+
+en Each one is in the applications menu, and updates itself.
+fr Chacun est dans le menu des applications, et se met à jour de lui-même.
+
+en Open
+fr Ouvrir
+
+en Back
+fr Retour
+
+en Close
+fr Fermer
+
+en Choose the programs
+fr Choisir les programmes
+
+en Next
+fr Suivant
+
+en Accept and install
+fr Accepter et installer
+
+en Reading…
+fr Lecture…
+
+en Not installed
+fr Non installé
+
+en Update from %s
+fr Mise à jour depuis %s
+
+en %s installed
+fr %s installé
+
+en Repair
+fr À réparer
+
+en Cannot be read here: %s
+fr Illisible ici : %s

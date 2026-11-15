@@ -1,0 +1,104 @@
+name: Release
+
+# A version tag vX.Y.Z (ateliertool ship makes it) builds atelier and publishes it: on Linux and on Windows, the release
+# build with that system's bundle after it (the programs' latest releases, each checked against its SHA-256), its
+# SHA-256 and its manifest, on a GitHub release whose notes are the changelog's section of that version followed by the
+# versions carried. The Linux job makes the release; the Windows job adds its files. The tag must be APP_VERSION's
+# (ateliertool package checks). refresh.yml calls it with the tag it shipped; by hand, it builds without publishing.
+on:
+  push:
+    tags: ['v*']
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # (the tag to publish: the pushed one, or the caller's; "" by hand: a try, nothing published)
+  TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  # Linux: built in Debian 12 (glibc 2.36): atelier starts on Debian 12, Ubuntu 22.04 and later.
+  release:
+    runs-on: ubuntu-24.04
+    container: debian:bookworm
+    timeout-minutes: 40
+    steps:
+      - name: git, curl, the GitHub CLI, Rust
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq git ca-certificates curl jq gh binutils xz-utils unzip >/dev/null
+          git config --global --add safe.directory '*'
+          curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable >/dev/null
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-odin-linux
+
+      - name: Build and test
+        run: |
+          odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool -vet
+          build/ateliertool check
+
+      - name: Package
+        run: build/ateliertool package $TAG
+
+      - uses: actions/upload-artifact@v4
+        if: env.TAG == ''
+        with:
+          name: atelier-linux-x64-try
+          path: build/dist/*
+
+      - name: Publish
+        if: env.TAG != ''
+        run: |
+          build/ateliertool notes "$TAG" > build/notes.md
+          {
+            echo
+            echo "### What this release carries"
+            echo
+            jq -r '.programs[] | "- **\(.name)** \(.version)"' build/dist/atelier-*-linux-x64.json
+          } >> build/notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" build/dist/* --title "atelier ${TAG#v}" --notes-file build/notes.md --repo "$GITHUB_REPOSITORY"
+          fi
+
+  windows:
+    needs: release
+    if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          submodules: recursive
+
+      - uses: ./ext/gui_toolkit/.github/actions/setup-odin
+
+      - name: Build, test, package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool.exe -vet
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          build/ateliertool.exe check
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          build/ateliertool.exe package $env:TAG
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Publish
+        shell: pwsh
+        run: gh release upload $env:TAG (Get-ChildItem build/dist/*).FullName --clobber --repo $env:GITHUB_REPOSITORY

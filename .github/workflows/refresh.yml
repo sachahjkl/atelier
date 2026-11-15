@@ -1,0 +1,62 @@
+name: Refresh
+
+# Every day: when a program of the suite has a newer release than the latest atelier carries, ateliertool behind writes
+# the changelog's fragment, ateliertool ship makes the patch release (its commit and tag pushed), and the release
+# workflow builds and publishes it. (A tag pushed with the workflow's token starts no workflow: the release is called.)
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      tag: ${{ steps.ship.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-odin-linux
+
+      - name: Behind?
+        id: behind
+        run: |
+          mkdir -p build
+          odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool -vet
+          set +e
+          build/ateliertool behind --fragment
+          code=$?
+          set -e
+          if [ "$code" = 3 ]; then echo "behind=true" >> "$GITHUB_OUTPUT"; elif [ "$code" != 0 ]; then exit "$code"; fi
+
+      - name: Ship a patch
+        id: ship
+        if: steps.behind.outputs.behind == 'true'
+        run: |
+          git config user.name sachahjkl
+          git config user.email sacha@sacha.house
+          git add changelog.d
+          git commit -q -m "The programs' latest versions"
+          build/ateliertool ship patch
+          echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: ship
+    if: needs.ship.outputs.tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.ship.outputs.tag }}
+    secrets: inherit

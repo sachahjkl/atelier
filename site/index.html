@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atelier: the working man's tools, by Froment Software</title>
+<meta name="description" content="Froment Software's desktop programs in one download: a clipboard history, a file manager, screenshots, a task manager and an opencode client. Choose them, read their licences, install them at once.">
+<link rel="icon" href="img/logo.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="#"><img src="img/logo.png" alt="" width="28" height="28"><span>atelier</span></a>
+  <button class="burger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav"><span></span></button>
+  <nav id="nav">
+    <a href="#tools">The tools</a>
+    <a href="#features">How it works</a>
+    <a href="#download">Download</a>
+    <a href="changelog.html">Changelog</a>
+    <a href="https://github.com/sachahjkl/atelier">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <img class="mark" src="img/logo.png" alt="The atelier logo: an orange toolbox with a steel handle and latch" width="112" height="112">
+    <h1>atelier</h1>
+    <p class="lead">The working man's tools. Every desktop program of <a href="https://froment.software">Froment Software</a> in one download: choose them, read their licences, and they install at once.</p>
+    <div class="actions">
+      <!-- download -->
+      <a class="btn" href="https://github.com/sachahjkl/atelier">Source on GitHub</a>
+    </div>
+    <p class="small"><!-- download-others --> &nbsp;·&nbsp; one file, no network needed &nbsp;·&nbsp; MIT</p>
+  </section>
+
+  <figure class="shot wide">
+    <a class="frame" href="img/main.png"><img src="img/main.png" alt="atelier's window on the Programs step: five programs, each with its logo, its version and a box to tick" loading="lazy"></a>
+    <figcaption>Tick what you want. What is already installed at the same version stays as it is.</figcaption>
+  </figure>
+
+  <h2 id="tools" class="section-title">The tools in the box</h2>
+  <p class="section-lead">Native programs, each a single file of a few megabytes, at 0&nbsp;% CPU when they wait. Each one updates itself once installed.</p>
+  <section class="suite">
+    <a class="tool" href="https://papier.froment.software/"><img src="img/programs/papier.png" alt=""><strong>papier</strong><span>A fast clipboard history, searched as you type.</span><em>Linux · Windows</em></a>
+    <a class="tool" href="https://classeur.froment.software/"><img src="img/programs/classeur.png" alt=""><strong>classeur</strong><span>A fast file manager you drive from the keyboard.</span><em>Linux · Windows</em></a>
+    <a class="tool" href="https://cliche.froment.software/"><img src="img/programs/cliche.png" alt=""><strong>cliche</strong><span>Fast screenshots and screen recordings, shared at once.</span><em>Linux · Windows</em></a>
+    <a class="tool" href="https://inspecteur.froment.software/"><img src="img/programs/inspecteur.png" alt=""><strong>inspecteur</strong><span>The processes of your machine, at a glance.</span><em>Linux</em></a>
+    <a class="tool" href="https://ocn.froment.software/"><img src="img/programs/opencode-native.png" alt=""><strong>opencode native</strong><span>A native desktop client for opencode.</span><em>Linux · Windows</em></a>
+  </section>
+
+  <section id="features" class="grid">
+    <article class="card">
+      <h3>One file</h3>
+      <p>The download carries every program at the version of its own release. It installs without the network.</p>
+    </article>
+    <article class="card">
+      <h3>You choose</h3>
+      <p>Each program shows what is installed: not yet, an older version to update, or already current.</p>
+    </article>
+    <article class="card">
+      <h3>The licences, first</h3>
+      <p>Before anything is written, you read the licence of each program and of what it includes.</p>
+    </article>
+    <article class="card">
+      <h3>Installed as they install themselves</h3>
+      <p>atelier runs each program's own <code>--install</code>: the same folder, menu entry and uninstaller as its own Install button.</p>
+    </article>
+    <article class="card">
+      <h3>For you alone</h3>
+      <p>Everything goes in your profile. No administrator, no service, nothing in the system's folders.</p>
+    </article>
+    <article class="card">
+      <h3>From a script too</h3>
+      <p><code>atelier list</code> says what it carries; <code>atelier install all</code> installs without a window.</p>
+    </article>
+  </section>
+
+  <!-- whats-new -->
+
+  <section class="gallery">
+    <figure class="shot"><a class="frame" href="img/licences.png"><img src="img/licences.png" alt="The Licences step: the licence of each chosen program, its text in a scroll view" loading="lazy"></a><figcaption>The licences of what you chose</figcaption></figure>
+    <figure class="shot"><a class="frame" href="img/installing.png"><img src="img/installing.png" alt="The Install step: one line per program, done, in progress or waiting" loading="lazy"></a><figcaption>One program after the other</figcaption></figure>
+    <figure class="shot"><a class="frame" href="img/done.png"><img src="img/done.png" alt="The last step: what was installed, a button to open each program" loading="lazy"></a><figcaption>Open what you installed</figcaption></figure>
+  </section>
+
+  <section id="download" class="download">
+    <h2>Download</h2>
+    <div class="cols">
+      <div class="well">
+        <h3>Windows</h3>
+        <p>One program for Windows 10 and 11 (x64). Start it: it installs papier, classeur, cliche and opencode native.</p>
+        <code><a href="https://github.com/sachahjkl/atelier/releases/download/v{{version}}/atelier-{{version}}-windows-x64.exe">atelier-{{version}}-windows-x64.exe</a></code>
+      </div>
+      <div class="well">
+        <h3>Linux</h3>
+        <p>One program for Linux x64. Make it executable and start it: <code>chmod +x atelier-*-linux-x64</code>.</p>
+        <code><a href="https://github.com/sachahjkl/atelier/releases/download/v{{version}}/atelier-{{version}}-linux-x64">atelier-{{version}}-linux-x64</a></code>
+      </div>
+      <div class="well">
+        <h3>NixOS</h3>
+        <p>Nix installs and updates each program from its flake. atelier shows the line of each one.</p>
+        <code>nix profile add github:sachahjkl/papier</code>
+      </div>
+    </div>
+    <p class="small">Each release says the version of every program it carries. The <a href="https://github.com/sachahjkl/atelier#readme">README</a> says the rest.</p>
+  </section>
+</main>
+
+<footer>
+  <p class="by">By <span class="maker"><img src="img/froment-software-64.png" alt="" width="16" height="16"><a href="https://froment.software">Froment Software</a></span></p>
+  <p class="small"><span>MIT licence</span> · <span>Built in <a href="https://odin-lang.org">Odin</a> on <a href="https://gt.sacha.house/">gui_toolkit</a></span> · <a href="classic/">Classic version</a></p>
+</footer>
+<script>
+  const bar = document.querySelector('.bar'), burger = bar.querySelector('.burger');
+  const shut = () => { bar.classList.remove('open'); burger.setAttribute('aria-expanded', 'false'); };
+  burger.addEventListener('click', e => { e.stopPropagation(); burger.setAttribute('aria-expanded', String(bar.classList.toggle('open'))); });
+  bar.querySelectorAll('nav a').forEach(a => a.addEventListener('click', shut));
+  document.addEventListener('click', e => { if (!bar.contains(e.target)) shut(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') shut(); });
+</script>
+<script src="gallery.js" defer></script>
+</body>
+</html>

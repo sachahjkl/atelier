@@ -1,0 +1,33 @@
+package ateliertool
+
+// The programs of the suite: what atelier carries. A program is here when its release has the single file that its
+// updater downloads (update-<platform>.json names it) and the file installs itself with `--install` (gui_toolkit's
+// gt:setup). Its name and tagline are its README's.
+
+Suite_Program :: struct {
+	slug:       string,   // the program's file name ("opencode-native"), and its folder in the bundle
+	repository: string,   // the GitHub repository's name under OWNER
+	name:       string,   // as people read it
+	tagline:    string,
+	site:       string,
+}
+
+OWNER :: "sachahjkl"
+
+@(rodata)
+PROGRAMS := [?]Suite_Program{
+	{slug = "papier", repository = "papier", name = "Papier", tagline = "A fast clipboard history, searched as you type.", site = "https://papier.froment.software/"},
+	{slug = "classeur", repository = "classeur", name = "Classeur", tagline = "A fast file manager you drive from the keyboard.", site = "https://classeur.froment.software/"},
+	{slug = "cliche", repository = "cliche", name = "cliche", tagline = "Fast screenshots and screen recordings, shared at once.", site = "https://cliche.froment.software/"},
+	{slug = "inspecteur", repository = "inspecteur", name = "Inspecteur", tagline = "The processes of your machine, at a glance.", site = "https://inspecteur.froment.software/"},
+	{slug = "opencode-native", repository = "opencode_native", name = "opencode native", tagline = "A native desktop client for opencode.", site = "https://ocn.froment.software/"},
+}
+
+// The platforms a bundle is made for, as the releases name them.
+PLATFORMS :: [?]string{"linux-x64", "windows-x64"}
+
+when ODIN_OS == .Windows {
+	THIS_PLATFORM :: "windows-x64"
+} else {
+	THIS_PLATFORM :: "linux-x64"
+}
