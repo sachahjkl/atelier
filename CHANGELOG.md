@@ -5,6 +5,17 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-15 20:37
+
+### Added
+- **By Froment Software in the setup**: the install's dialog and the settings' Installation page say who makes Atelier, with its mark; the name opens froment.software.
+- **Your own keys and aliases for any command**: in the command palette (Ctrl+K), Ctrl+Enter on a command records a key for it, one key or two in a row (Ctrl+M, then T). Alt+Enter makes the letters typed an alias of the command: typed whole, the alias puts the command first. A program's "Open" line takes a key too. The tooltips and the sheet of the keys (F1) show your keys. Settings > Keys holds them, where a reset removes them.
+
+### Changed
+- **Each thing said once**: the lines that repeated what a step, a button or a mark already shows are gone: the welcome's paragraphs, the Programs and Licences instructions, "Failed" under a red step, "in the applications menu" on Atelier's own row.
+- **When the copy was made, in words**: the first step says when the carried programs were put together, with the hour, as one says it ("made today 21:30", "made Nov 10, 18:42").
+- **Atelier's name capitalised, and its files in the vendor's folder**: the window, the palette, the setup and the settings say "Atelier". The settings, the state, the logs and the scratch folder are now in `FromentSoftware/Atelier` (`~/.config/FromentSoftware/Atelier`, `~/.local/state/FromentSoftware/Atelier`...). The settings start fresh there once (the theme, the window's place), and the palette forgets once which commands you chose most often.
+
 ## [0.5.1] - 2026-11-15 18:00
 
 ### Changed
@@ -81,6 +92,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.6.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.6.0
 [0.5.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.5.1
 [0.5.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.5.0
 [0.4.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.4.0
