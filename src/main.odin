@@ -111,7 +111,8 @@ run :: proc(all_args: []string) -> int {
 	for p in problems { process.console_error(fmt.tprintf("atelier: %s\n", p)) }
 	// (--install, --uninstall and --status: atelier's own install, no window; --setup is the window's)
 	cmd, words := setup.command_of(rest[:])
-	if setup.command_alone(cmd) { return setup.command_run(cmd, setup_options(), process.console_write) }
+	// (its Exit is the process's code: 0 done, 1 failed, 2 to repair for --status)
+	if setup.command_alone(cmd) { return int(setup.command_run(cmd, setup_options(), process.console_write)) }
 	verb := len(words) > 0 ? words[0] : ""
 	switch verb {
 	case "":

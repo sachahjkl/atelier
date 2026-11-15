@@ -36,11 +36,9 @@ jobs:
         run: |
           mkdir -p build
           odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool -vet
-          set +e
           build/ateliertool behind --fragment
-          code=$?
-          set -e
-          if [ "$code" = 3 ]; then echo "behind=true" >> "$GITHUB_OUTPUT"; elif [ "$code" != 0 ]; then exit "$code"; fi
+          # (behind: the fragment it wrote is a new file of changelog.d)
+          if [ -n "$(git status --porcelain changelog.d)" ]; then echo "behind=true" >> "$GITHUB_OUTPUT"; fi
 
       - name: Ship a patch
         id: ship

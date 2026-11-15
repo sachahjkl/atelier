@@ -10,6 +10,7 @@ import "core:fmt"
 import "core:os"
 import "core:time"
 import cdp "gt:cdp"
+import cli "gt:cli"
 import toolbox "gt:toolbox"
 
 SHOTS_DIR  :: "build/shots"
@@ -51,25 +52,25 @@ SHOTS := [?]Shot{
 	{name = "palette", step = "programs", seen = "Papier", then = {{"key", "ctrl+k", "Next step"}}},
 }
 
-run_shots :: proc(args: []string) -> int {
+run_shots :: proc(args: []string) -> cli.Exit {
 	out := SHOTS_OUT
 	if len(args) == 2 && args[0] == "--out" { out = args[1] }
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
-	if !os.exists(bundle) && run_bundle(nil) != 0 { return 1 }
-	if run_build(nil) != 0 { return 1 }   // (a debug build: it has the DevTools server)
+	if !os.exists(bundle) && run_bundle(nil) != .Done { return .Failed }
+	if run_build(nil) != .Done { return .Failed }   // (a debug build: it has the DevTools server)
 	_ = os.make_directory_all(out)
 	toolbox.guard_groups()
 	failed := false
 	for s in SHOTS {
 		if !take(s, bundle, out) { fmt.eprintfln("ateliertool shots: %s failed", s.name); failed = true }
 	}
-	if failed { return 1 }
-	if out != SHOTS_OUT { return 0 }
+	if failed { return .Failed }
+	if out != SHOTS_OUT { return .Done }
 	for s in SHOTS {
 		data, err := os.read_entire_file(fmt.tprintf("%s/%s.png", out, s.name), context.temp_allocator)
 		if err == nil { _ = os.write_entire_file(fmt.tprintf("%s/%s.png", SHOTS_SITE, s.name), data) }
 	}
-	return 0
+	return .Done
 }
 
 // One picture: a sway of its own, atelier on the step, its frame once the text shows.

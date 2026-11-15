@@ -12,24 +12,25 @@ import "core:os"
 import "core:strings"
 import "core:time"
 import cdp "gt:cdp"
+import cli "gt:cli"
 import toolbox "gt:toolbox"
 
 LIVE_DIR :: "build/live"
 
-run_live :: proc(args: []string) -> int {
+run_live :: proc(args: []string) -> cli.Exit {
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
-	if !os.exists(bundle) && run_bundle(nil) != 0 { return 1 }
-	if run_build(nil) != 0 { return 1 }
+	if !os.exists(bundle) && run_bundle(nil) != .Done { return .Failed }
+	if run_build(nil) != .Done { return .Failed }
 	_ = os.remove_all(LIVE_DIR)
 	here, _ := os.get_working_directory(context.temp_allocator)
 	home := fmt.tprintf("%s/%s/home", here, LIVE_DIR)
 	for sub in ([]string{"", "/.config", "/.local/share", "/.local/state", "/.cache", "/Desktop"}) {
-		if os.make_directory_all(fmt.tprintf("%s%s", home, sub)) != nil { fmt.eprintfln("live: %s cannot be made", home); return 1 }
+		if os.make_directory_all(fmt.tprintf("%s%s", home, sub)) != nil { fmt.eprintfln("live: %s cannot be made", home); return .Failed }
 	}
 	// (a runtime folder of its own too: the programs' single instances live there, and the person's own papier, which
 	// runs, must neither be seen as this home's nor be closed by the test)
 	runtime := fmt.tprintf("%s/run", home)
-	if os.make_directory_all(runtime) != nil || os.chmod(runtime, {.Read_User, .Write_User, .Execute_User}) != nil { fmt.eprintfln("live: %s cannot be made", runtime); return 1 }
+	if os.make_directory_all(runtime) != nil || os.chmod(runtime, {.Read_User, .Write_User, .Execute_User}) != nil { fmt.eprintfln("live: %s cannot be made", runtime); return .Failed }
 	env := toolbox.env_with({"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DESKTOP_DIR", "XDG_RUNTIME_DIR"},
 		fmt.tprintf("HOME=%s", home), fmt.tprintf("XDG_CONFIG_HOME=%s/.config", home), fmt.tprintf("XDG_DATA_HOME=%s/.local/share", home),
 		fmt.tprintf("XDG_STATE_HOME=%s/.local/state", home), fmt.tprintf("XDG_CACHE_HOME=%s/.cache", home), fmt.tprintf("XDG_RUNTIME_DIR=%s", runtime))
@@ -70,10 +71,10 @@ run_live :: proc(args: []string) -> int {
 	if !os.exists(fmt.tprintf("%s/.local/share/applications/atelier.desktop", home)) { fmt.eprintln("live: atelier has no menu entry"); failed = true }
 	if _, code := atelier(env, "--uninstall"); code != 0 { fmt.eprintln("live: atelier --uninstall failed"); failed = true }
 	if _, code := atelier(env, "--status"); code != 1 { fmt.eprintln("live: atelier --status does not say uninstalled"); failed = true }
-	if failed { return 1 }
+	if failed { return .Failed }
 	fmt.println("live: every program installed, in its own home")
-	if !live_window() { return 1 }
-	return live_after_update() ? 0 : 1
+	if !live_window() { return .Failed }
+	return toolbox.ended(live_after_update())
 }
 
 // The new copy after the suite's update (`--after-update`, what atelier starts once its update is in place): it opens on

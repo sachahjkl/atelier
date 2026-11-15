@@ -126,6 +126,16 @@ status_parse :: proc(code: int, text: string, carried: string, allocator := cont
 	installed := status_field(text, "version")
 	program := status_field(text, "program")
 	s.running = status_field(text, "running") == "true"
+	// (the words of the first line say the state; a program built on gui_toolkit 0.278.0 or later exits 1 for "to
+	// repair" as for "not installed", so the code alone no longer tells them apart. The code stays the answer of a
+	// program whose first line says neither)
+	first_line := strings.trim_space(text)
+	if nl := strings.index_byte(first_line, '\n'); nl >= 0 { first_line = first_line[:nl] }
+	code := code
+	switch {
+	case strings.has_suffix(first_line, ": installed, to repair"):  code = STATUS_REPAIR
+	case strings.has_suffix(first_line, ": not installed"), strings.has_suffix(first_line, ": uninstalled"): code = STATUS_ABSENT
+	}
 	switch code {
 	case STATUS_ABSENT: s.state = .Absent
 	case STATUS_REPAIR: s.state = .Repair

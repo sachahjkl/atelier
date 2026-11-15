@@ -16,6 +16,8 @@ each_exit_code_of_status_is_a_state :: proc(t: ^testing.T) {
 	cases := []Case{
 		{1, status_text("not installed", "-", "-"), "0.23.2", .Absent, ""},
 		{2, status_text("installed, to repair", "-", "0.23.2"), "0.23.2", .Repair, "0.23.2"},
+		// (gui_toolkit 0.278.0 and later: "to repair" exits 1, as "not installed" does; the words tell them apart)
+		{1, status_text("installed, to repair", "-", "0.23.2"), "0.23.2", .Repair, "0.23.2"},
 		{0, status_text("installed (another copy)", "/home/me/.local/share/papier/papier", "0.23.1"), "0.23.2", .Older, "0.23.1"},
 		{0, status_text("installed (another copy)", "/home/me/.local/share/papier/papier", "0.23.2"), "0.23.2", .Current, "0.23.2"},
 		{0, status_text("installed (another copy)", "/home/me/.local/share/papier/papier", "0.24.0"), "0.23.2", .Newer, "0.24.0"},

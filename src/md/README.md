@@ -122,8 +122,9 @@ unsaved work in it.
 ## A failed install, again
 
 A failed row says why on its own line, under its stepper: the reason (below), in the danger tone with the icon
-`ALERT_CIRCLE`, and a "Details" toggle that shows the whole output in a monospace view with a Copy button. Its "Retry"
-(the icon `ROTATE_CCW`) is at the row's end, right of the stepper. Once the installs are over, the panel at the top also
+`ALERT_CIRCLE`, and at the line's end a "Details" toggle that shows the whole output under it, monospace, in a tinted
+area with a Copy button in its corner. Its "Retry" (the icon `ROTATE_CCW`) is at the row's end, right of the stepper,
+above Details. Once the installs are over, the status card at the top also
 has "Retry the failed ones". A retry runs the row's whole way again: the look, the question when the program runs, then
 Close, Unpack, Install and Check. Its stepper starts again in place: the row neither moves nor leaves the step. One look
 at a time: the Retry buttons wait while a look or its question is under way.
@@ -226,9 +227,9 @@ Running -> Finished -> Retrying
 ```
 
 - **Running**: the first installs; some row is Waiting or Installing.
-- **Finished**: no row is busy. The top panel is the summary.
-- **Retrying**: a retry is under way. The top panel stays the summary, its "Retry the failed ones" busy, its counts
-  live: going back to the progress panel would move the whole screen for one row.
+- **Finished**: no row is busy. The status card is the summary.
+- **Retrying**: a retry is under way. The status card stays the summary, its "Retry the failed ones" busy, its counts
+  live: going back to the progress would move the whole screen for one row.
 
 Refused: a Done step after Installing (until 0.4.0). Every row's stepper disappeared at once for another list, a failed
 row's Retry took the person back to the other screen, and the reason of a failure was one tooltip away. One row per
@@ -264,7 +265,7 @@ Idle -> Reading -> To_Ask -> Asking -> Idle (the answer)
 - **Checking**: the Licences step while the look for running copies reads, and while its question is open. Its button
   turns. The title bar shows Licences.
 - **Installing**: one row per chosen program, all installing at once, each with its stepper (Close, Unpack, Install,
-  Check) from the first phase to the end. Above them, a panel: while Running, the count and a bar for the whole; once
+  Check) from the first phase to the end, in one list. Above them, the status card: while Running, the count and a bar for the whole; once
   Finished, in place, the summary ("5 programs are installed", or "4 installed, 1 failed"), the menu's note and "Retry
   the failed ones". The only button under it is Close: an install that started ends, so no Back.
 
@@ -368,6 +369,30 @@ again at an install (its first try failed) is checked against its SHA-256, so a 
 - `atelier --demo --demo-case failure|update`: the demo with a failed install, or with a newer suite on offer (the
   pictures).
 - `atelier --version`, `atelier --help`.
+
+## The layout
+
+Every gap and inset of atelier's views is a step of one spacing scale (`SPACE_1` 0.25, `SPACE_2` 0.5, `SPACE_3` 0.75,
+`SPACE_4` 1, `SPACE_6` 1.5 font sizes), through a role that has the same step everywhere (`src/view.odin`): the page's
+margin, a card's inset (the same on its four sides), a list row's inset, the gap between groups, between lines, between
+an icon and its words, between buttons. Until 0.5.0 each place had its own value (0.3, 0.45, 0.6, 0.9): no two places
+lined up, and a button touched its panel's edge.
+
+One level of framing:
+
+- a group (a notice, the install's status) is one card; its button sits inside its inset, centred on its line;
+- a list (the programs, the installs, the welcome's programs) is one card whose rows are split by hairlines, never a
+  stack of framed rows;
+- nothing framed goes in a card: a failed install's output is a tinted area (the theme's well colour) without an edge,
+  on the row's text column;
+- what is not a group stays on the page, unframed: the welcome's head, the list's head, the licences' sections. A
+  licence's text is a well on the page, not in a card.
+
+The cards end on the page's margin, where the bottom buttons end. The body's scroll bar sits in that margin: the right
+margin of the body's lines is the page's margin less the bar's room, so nothing moves when the body starts to scroll.
+
+Refused: the toolkit's `ui.card`. Its inset differs above (0.9) and at the sides (1.1), and it adds a gap of its own
+after it; atelier's cards need one inset on four sides and the page's gaps.
 
 ## Subtle points
 

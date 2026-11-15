@@ -12,6 +12,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:time"
 import archive "gt:archive"
+import cli "gt:cli"
 import toolbox "gt:toolbox"
 
 DOWNLOADS :: "build/downloads"
@@ -71,17 +72,17 @@ Release_File :: struct {
 }
 
 // `bundle [platform] [--out file]`: build/bundle-<platform>.zip by default.
-run_bundle :: proc(args: []string) -> int {
+run_bundle :: proc(args: []string) -> cli.Exit {
 	platform, out := THIS_PLATFORM, ""
 	for i := 0; i < len(args); i += 1 {
 		switch {
 		case args[i] == "--out" && i + 1 < len(args): i += 1; out = args[i]
-		case strings.has_prefix(args[i], "--"): fmt.eprintfln("bundle: %s is not an option", args[i]); return 2
+		case strings.has_prefix(args[i], "--"): fmt.eprintfln("bundle: %s is not an option", args[i]); return .Usage
 		case: platform = args[i]
 		}
 	}
 	if out == "" { out = fmt.tprintf("build/bundle-%s.zip", platform) }
-	return make_bundle(platform, out, "") ? 0 : 1
+	return toolbox.ended(make_bundle(platform, out, ""))
 }
 
 // Writes the bundle of `platform` to `out`, after the bytes of `host` when it is not "" (the atelier program: then `out`

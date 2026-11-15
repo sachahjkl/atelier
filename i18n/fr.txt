@@ -234,13 +234,13 @@ fr Les outils de l'artisan · par Froment Software
 en atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed.
 fr atelier installe les programmes de Froment Software en une fois. Choisissez les programmes, lisez leurs licences, et chacun s'installe de lui-même, pour vous seul : aucun administrateur n'est nécessaire.
 
+en Each program updates itself once it is installed.
+fr Chaque programme se met à jour de lui-même une fois installé.
+
 en This copy carries %d program, made on %s.
 en+ This copy carries %d programs, made on %s.
 fr Cette copie contient %d programme, assemblée le %s.
 fr+ Cette copie contient %d programmes, assemblée le %s.
-
-en Each program updates itself once it is installed.
-fr Chaque programme se met à jour de lui-même une fois installé.
 
 en atelier is up to date: choose what to update.
 fr atelier est à jour : choisissez ce qu'il faut mettre à jour.
