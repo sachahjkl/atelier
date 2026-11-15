@@ -21,7 +21,7 @@ import "gt:ui"
 // The space on each side of the panels, in font sizes (the setup dialog's).
 MARGIN_EM :: 1.5
 
-// The height of a licence's text, of a failed install's output, in font sizes: what does not fit scrolls.
+// The height of a licence's text, in font sizes: what does not fit scrolls.
 TEXT_VIEW_EM :: 12
 
 view_build :: proc(h: ^host.Host, size: host.Vec2) {
@@ -71,7 +71,6 @@ build_page :: proc(app: ^App, em: f32) {
 			case .Programs:   programs_view(app, em)
 			case .Licences, .Checking: licences_view(app, em)
 			case .Installing: installing_view(app, em)
-			case .Done:       done_view(app, em)
 			}
 		}
 		ui.spacer(ui.px(em))
@@ -142,7 +141,7 @@ steps :: proc(app: ^App, em: f32) {
 	shown := [3]Shown{
 		{i18n.tr("Programs"), lucide.PACKAGE, {.Programs}},
 		{i18n.tr("Licences"), lucide.SCALE, {.Licences, .Checking}},
-		{i18n.tr("Install"), lucide.DOWNLOAD, {.Installing, .Done}},
+		{i18n.tr("Install"), lucide.DOWNLOAD, {.Installing}},
 	}
 	ui.next({width = ui.children_sum(), height = ui.pct(1), axis = .X, cross = .Center})
 	if ui.row(.Center, id = "###steps") {
@@ -476,20 +475,73 @@ licences_view :: proc(app: ^App, em: f32) {
 	}
 }
 
+// The width of a row's end, in font sizes: reserved from the start, so that no stepper shifts when Retry or Open appears.
+ROW_END_EM :: 8.5
+
+// The height of a failed install's output, in font sizes.
+OUTPUT_VIEW_EM :: 8
+
+// The install, from its first phase to its result, on one screen (src/md/README.md, "The steps of the window"): the
+// panel at the top, then one row per program chosen, each with its stepper the whole time.
 @(private = "file")
 installing_view :: proc(app: ^App, em: f32) {
-	done, of := installed_count(app)
+	install_panel(app, em)
+	for p, i in app.programs {
+		r := &app.rows[i]
+		if r.result == .None { continue }
+		ui.spacer(ui.px(em * 0.45))
+		install_row(app, p, i, r, em)
+	}
+}
+
+// The panel at the top: the count and the bar while Running; once Finished, in place, the summary, the menu's note and
+// "Retry the failed ones" (busy while Retrying).
+@(private = "file")
+install_panel :: proc(app: ^App, em: f32) {
+	installed, failed, busy := 0, 0, 0
+	for r in app.rows {
+		switch {
+		case r.result == .Installed: installed += 1
+		case r.result == .Failed:    failed += 1
+		case result_busy(r.result):  busy += 1
+		}
+	}
+	text, glyph, tone, note: string
+	switch app.stage {
+	case .Running:
+		done, of := installed_count(app)
+		text, glyph, tone = fmt.tprintf(i18n.tr("Installing: %d of %d done"), done, of), lucide.DOWNLOAD, ""
+		note = i18n.tr("The programs install themselves side by side. If you close the window, those under way end their install first.")
+	case .Retrying:
+		text, glyph, tone = fmt.tprintf(i18n.tr("%d installed, %d installing again."), installed, busy), lucide.ROTATE_CCW, ""
+		note = i18n.tr("Each one is in the applications menu, and updates itself.")
+	case .Finished:
+		if failed == 0 {
+			text, glyph, tone = fmt.tprintf(i18n.tr(installed, "Done: %d program is installed.", "Done: %d programs are installed."), installed), lucide.CHECK_CIRCLE, "good"
+		} else {
+			text, glyph, tone = fmt.tprintf(i18n.tr("%d installed, %d failed."), installed, failed), lucide.ALERT_TRIANGLE, "bad"
+		}
+		note = i18n.tr("Each one is in the applications menu, and updates itself.")
+	}
 	if panel(em, "###progress") {
 		ui.spacer(ui.px(em * 0.7))
 		line_next()
 		if ui.row(.Center, id = "###count_row") {
 			ui.spacer(ui.px(em * 0.9))
-			small_icon(em, lucide.DOWNLOAD, ui.color("text"))
-			ui.spacer(ui.px(math.round(em * 0.45)))
-			ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.8)), text_pad = 0})
-			ui.label(fmt.tprintf("%s###count", fmt.tprintf(i18n.tr("Installing: %d of %d done"), done, of)))
+			if ui.tags(tone) {
+				small_icon(em, glyph, ui.color("text"))
+				ui.spacer(ui.px(math.round(em * 0.45)))
+				ui.next({width = ui.fill(), height = ui.px(math.round(em * 2)), text_pad = 0})
+				ui.label(fmt.tprintf("%s###count", text))
+			}
+			retrying := app.stage == .Retrying
+			if app.stage != .Running && (failed > 0 || retrying) {
+				disabled := !action_enabled(app, .Retry_Failed) && !retrying
+				if button("###retry_failed", i18n.tr("Retry the failed ones"), lucide.ROTATE_CCW, .Primary, disabled, busy = retrying) { retry_failed(app) }
+			}
 			ui.spacer(ui.px(em * 0.9))
 		}
+		ui.spacer(ui.px(em * 0.2))
 		line_next()
 		if ui.row(.Center, id = "###bar_row") {
 			ui.spacer(ui.px(em * 0.9))
@@ -498,14 +550,20 @@ installing_view :: proc(app: ^App, em: f32) {
 			ui.spacer(ui.px(em * 0.9))
 		}
 		ui.spacer(ui.px(em * 0.5))
-		icon_paragraph(em, "###note", lucide.INFO, i18n.tr("The programs install themselves side by side. If you close the window, those under way end their install first."), "weak")
+		icon_paragraph(em, "###note", lucide.INFO, note, "weak")
 		ui.spacer(ui.px(em * 0.7))
 	}
-	for p, i in app.programs {
-		r := &app.rows[i]
-		if r.result == .None { continue }
-		ui.spacer(ui.px(em * 0.45))
-		if panel(em, fmt.tprintf("###installing_%s", p.slug), .X) {
+}
+
+// One program's row: its mark, its name, its stepper, its end (Retry or Open, in a reserved width); under them, what
+// its result says: the installed path, or the reason of a failure and its output.
+@(private = "file")
+install_row :: proc(app: ^App, p: Program, index: int, r: ^Row, em: f32) {
+	// (the lines under the stepper start under the name, past the mark)
+	indent := em * 0.9 + math.round(em * 2) + em * 0.7
+	if panel(em, fmt.tprintf("###installing_%s", p.slug)) {
+		line_next()
+		if ui.row(.Center, id = "###head") {
 			ui.spacer(ui.px(em * 0.9))
 			program_mark(r, em * 2, "###mark")
 			ui.spacer(ui.px(em * 0.7))
@@ -514,22 +572,120 @@ installing_view :: proc(app: ^App, em: f32) {
 			steps := install_steps(r^, p.own)
 			ui.next({width = ui.fill()})
 			ui.stepper("###phases", steps[:])
-			if r.result == .Failed {
-				ui.spacer(ui.px(em * 0.6))
-				retry_button(app, i, r^, em)
+			ui.spacer(ui.px(em * 0.6))
+			ui.next({width = ui.px(math.round(em * ROW_END_EM)), height = ui.children_sum(), axis = .X, cross = .Center})
+			if ui.row(.Center, id = "###end") {
+				ui.spacer(ui.fill())
+				#partial switch r.result {
+				case .Failed:
+					o := ui.Button_Options{icon_font = ui.lucide_icons(), disabled = app.look != .Idle}
+					if ui.button("###retry", i18n.tr("Retry"), lucide.ROTATE_CCW, o).clicked { retry(app, {index}) }
+				case .Installed:
+					// (atelier is open: an Open would start a second one, which hands itself over to this window)
+					if !p.own {
+						if ui.button("###open", i18n.tr("Open"), lucide.PLAY, {icon_font = ui.lucide_icons(), intent = .Success, disabled = r.status.program == ""}).clicked {
+							open_program(app, r.status.program)
+						}
+					}
+				}
 			}
 			ui.spacer(ui.px(em * 0.9))
+		}
+		#partial switch r.result {
+		case .Installed: installed_lines(p, r^, indent, em)
+		case .Failed:    failure_lines(app, index, r, indent, em)
 		}
 	}
 }
 
-// A failed row's Retry: its whole way again. Its tooltip says why it failed (the Done step shows the whole output).
+// Under an installed program's stepper: atelier's own words (it is open, so no Open), then where it is.
 @(private = "file")
-retry_button :: proc(app: ^App, index: int, r: Row, em: f32) {
-	tip := r.output
-	if nl := strings.index_byte(tip, '\n'); nl >= 0 { tip = tip[:nl] }
-	o := ui.Button_Options{icon_font = ui.lucide_icons(), tip = tip, disabled = app.look != .Idle}
-	if ui.button("###retry", i18n.tr("Retry"), lucide.ROTATE_CCW, o).clicked { retry(app, {index}) }
+installed_lines :: proc(p: Program, r: Row, indent, em: f32) {
+	if !p.own && r.status.program == "" { return }
+	if p.own {
+		line_next()
+		if ui.row(.Center, id = "###own_result") {
+			ui.spacer(ui.px(indent))
+			if ui.tags("good") {
+				small_icon(em, lucide.CHECK, ui.color("text"))
+				ui.spacer(ui.px(math.round(em * 0.3)))
+				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), text_pad = 0})
+				ui.label(fmt.tprintf("%s###words", i18n.tr("Installed: it is in the applications menu")))
+			}
+			ui.spacer(ui.px(em * 0.9))
+		}
+	}
+	if r.status.program != "" {
+		line_next()
+		if ui.row(.Center, id = "###where_row") {
+			ui.spacer(ui.px(indent))
+			if ui.tags("weak") {
+				ui.next({width = ui.px(math.round(em * 1.2)), height = ui.px(math.round(em * 1.4)), font = ui.lucide_icons(), text_align = .Center, font_size = math.round(em * 0.86), text_pad = 0})
+				ui.build_box({.Draw_Text, .No_Text_Trunc}, fmt.tprintf("%s###where_icon", lucide.FOLDER))
+				ui.spacer(ui.px(math.round(em * 0.3)))
+				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.86)})
+				ui.label(fmt.tprintf("%s###where", r.status.program))
+			}
+			ui.spacer(ui.px(em * 0.9))
+		}
+	}
+	ui.spacer(ui.px(em * 0.6))
+}
+
+// Under a failed program's stepper: the reason in one line, "Details", and once open the whole output (its exit code
+// after it) with a Copy button.
+@(private = "file")
+failure_lines :: proc(app: ^App, index: int, r: ^Row, indent, em: f32) {
+	details := failure_details(r^)
+	line_next()
+	if ui.row(id = "###reason_row") {
+		ui.spacer(ui.px(indent))
+		if ui.tags("bad") {
+			small_icon(em, lucide.ALERT_CIRCLE, ui.color("text"))
+			ui.spacer(ui.px(math.round(em * 0.3)))
+			ui.next({width = ui.fill(), text_pad = 0})
+			ui.paragraph(fmt.tprintf("%s###reason", failure_reason(r.output, r.phase, r.exit_code)))
+		}
+		if details != "" {
+			ui.spacer(ui.px(em * 0.4))
+			if r.details {
+				copied := app.copied == index
+				sig := ui.button("###copy_output", icon = copied ? lucide.CHECK : lucide.COPY, o = {icon_font = ui.lucide_icons(), quiet = true, tip = copied ? i18n.tr("Copied") : i18n.tr("Copy")})
+				if sig.clicked {
+					ui.window_clipboard_set(details)
+					app.copied = index
+				} else if copied && !sig.hovering {
+					app.copied = -1   // (the check goes when the pointer leaves)
+				}
+				ui.spacer(ui.px(em * 0.2))
+			}
+			if ui.button("###details", i18n.tr("Details"), r.details ? lucide.CHEVRON_UP : lucide.CHEVRON_DOWN, {icon_font = ui.lucide_icons(), quiet = true}).clicked {
+				r.details = !r.details
+			}
+		}
+		ui.spacer(ui.px(em * 0.9))
+	}
+	if r.details && details != "" {
+		ui.spacer(ui.px(em * 0.3))
+		line_next()
+		if ui.row(id = "###output_row") {
+			ui.spacer(ui.px(indent))
+			ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
+			if ui.column(id = "###output_column") { text_view(em, "###output", details, margins = false, height_em = OUTPUT_VIEW_EM) }
+			ui.spacer(ui.px(em * 0.9))
+		}
+	}
+	ui.spacer(ui.px(em * 0.6))
+}
+
+// What Details shows of a failure: the whole output, then the exit code when the install ran ("": nothing more than
+// the reason). In the temporary memory.
+failure_details :: proc(r: Row) -> string {
+	code, ran := r.exit_code.?
+	if !ran { return strings.contains(r.output, "\n") ? r.output : "" }
+	exit := fmt.tprintf(i18n.tr("Exit code: %s"), exit_code_words(code))
+	if r.output == "" { return exit }
+	return fmt.tprintf("%s\n\n%s", r.output, exit)
 }
 
 // The phases of a program's install as its stepper shows them: those before the phase under way done, that one turning
@@ -541,12 +697,7 @@ install_steps :: proc(r: Row, own := false) -> [len(Install_Phase)]ui.Stepper_St
 	started := r.result == .Installing || r.result == .Installed || r.result == .Failed
 	for phase in Install_Phase {
 		s := &steps[int(phase)]
-		switch phase {
-		case .Close:   s.label = i18n.tr("Close")
-		case .Unpack:  s.label = i18n.tr("Unpack")
-		case .Install: s.label = own ? i18n.tr("Copy") : i18n.tr("Install")
-		case .Check:   s.label = i18n.tr("Check")
-		}
+		s.label = phase_words(phase, own)
 		// (known once the install started: before, the look has not said whether a copy runs)
 		skipped := (phase == .Close && (own || !r.close)) || (own && phase == .Unpack)
 		if skipped && started {
@@ -584,130 +735,18 @@ install_fraction :: proc(app: ^App) -> f32 {
 	return of > 0 ? f32(sum) / f32(of) : 0
 }
 
-// Waiting, installing (a spinner), installed (a check), failed (a cross), and its words.
-@(private = "file")
-result_mark :: proc(result: Result, em: f32) {
-	words, tone, glyph: string
-	switch result {
-	case .None, .Waiting, .Retrying: words, tone = i18n.tr("Waiting"), "weak"
-	case .Installing:     words, tone = i18n.tr("Installing…"), ""
-	case .Installed:      words, tone, glyph = i18n.tr("Installed"), "good", lucide.CHECK
-	case .Failed:         words, tone, glyph = i18n.tr("Failed"), "bad", lucide.X
-	}
-	ui.next({width = ui.children_sum(), height = ui.px(math.round(em * 2)), axis = .X, cross = .Center})
-	if ui.row(.Center, id = "###result") {
-		if ui.tags(tone) {
-			if result == .Installing {
-				ui.spinner("###spin", math.round(em * 1.1))
-				ui.spacer(ui.px(em * 0.4))
-			} else if glyph != "" {
-				ui.icon(glyph, math.round(em * 1.4), ui.color("text"), ui.lucide_icons())
-			}
-			ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0})
-			ui.label(fmt.tprintf("%s###words", words))
-		}
-	}
-}
-
-// atelier's own row of the Done step, in place of Open: where the person finds it again.
-@(private = "file")
-own_installed_mark :: proc(em: f32) {
-	ui.next({width = ui.children_sum(), height = ui.px(math.round(em * 2)), axis = .X, cross = .Center})
-	if ui.row(.Center, id = "###own_result") {
-		if ui.tags("good") {
-			ui.icon(lucide.CHECK, math.round(em * 1.4), ui.color("text"), ui.lucide_icons())
-			ui.spacer(ui.px(math.round(em * 0.3)))
-			ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0})
-			ui.label(fmt.tprintf("%s###words", i18n.tr("Installed: it is in the applications menu")))
-		}
-	}
-}
-
 // A program's line: atelier's own is translated (its words are the program's), a carried program's is its bundle's.
 program_tagline :: proc(p: Program) -> string {
 	return p.own ? i18n.tr(p.tagline) : p.tagline
 }
 
-@(private = "file")
-done_view :: proc(app: ^App, em: f32) {
-	installed, failed := 0, 0
-	for r in app.rows {
-		if r.result == .Installed { installed += 1 }
-		if r.result == .Failed { failed += 1 }
-	}
-	if panel(em, "###summary") {
-		ui.spacer(ui.px(em * 0.7))
-		text := failed == 0 ? fmt.tprintf(i18n.tr(installed, "Done: %d program is installed.", "Done: %d programs are installed."), installed) : fmt.tprintf(i18n.tr("%d installed, %d failed."), installed, failed)
-		icon_paragraph(em, "###summary_text", failed == 0 ? lucide.CHECK_CIRCLE : lucide.ALERT_CIRCLE, text, failed == 0 ? "good" : "bad")
-		ui.spacer(ui.px(em * 0.3))
-		icon_paragraph(em, "###menu", lucide.INFO, i18n.tr("Each one is in the applications menu, and updates itself."), "weak")
-		ui.spacer(ui.px(em * 0.7))
-	}
-	for p, i in app.programs {
-		r := &app.rows[i]
-		if r.result != .Installed && r.result != .Failed { continue }
-		ui.spacer(ui.px(em * 0.45))
-		if panel(em, fmt.tprintf("###done_%s", p.slug)) {
-			line_next()
-			if ui.row(.Center, id = "###head") {
-				ui.spacer(ui.px(em * 0.9))
-				program_mark(r, em * 2, "###mark")
-				ui.spacer(ui.px(em * 0.7))
-				ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
-				if ui.column(id = "###words") {
-					ui.spacer(ui.px(em * 0.5))
-					ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.6)), text_pad = 0})
-					ui.label(fmt.tprintf("%s %s###name", p.name, p.version))
-					if r.result == .Installed && r.status.program != "" {
-						if ui.tags("weak") {
-							ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), axis = .X, cross = .Center})
-							if ui.row(.Center, id = "###where_row") {
-								ui.next({width = ui.px(math.round(em * 1.1)), height = ui.pct(1), font = ui.lucide_icons(), text_align = .Center, font_size = math.round(em * 0.86), text_pad = 0})
-								ui.build_box({.Draw_Text, .No_Text_Trunc}, fmt.tprintf("%s###where_icon", lucide.FOLDER))
-								ui.spacer(ui.px(math.round(em * 0.3)))
-								ui.next({width = ui.fill(), height = ui.pct(1), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.86)})
-								ui.label(fmt.tprintf("%s###where", r.status.program))
-							}
-						}
-					}
-					ui.spacer(ui.px(em * 0.5))
-				}
-				if r.result == .Installed && p.own {
-					// (atelier is open: an Open would start a second one, which hands itself over to this window)
-					own_installed_mark(em)
-				} else if r.result == .Installed {
-					if ui.button("###open", i18n.tr("Open"), lucide.PLAY, {icon_font = ui.lucide_icons(), intent = .Success, disabled = r.status.program == ""}).clicked {
-						open_program(app, r.status.program)
-					}
-				} else {
-					result_mark(r.result, em)
-					ui.spacer(ui.px(em * 0.6))
-					retry_button(app, i, r^, em)
-				}
-				ui.spacer(ui.px(em * 0.9))
-			}
-			if r.result == .Failed && r.output != "" {
-				ui.spacer(ui.px(em * 0.2))
-				line_next()
-				if ui.row(id = "###output_row") {
-					ui.spacer(ui.px(em * 0.9))
-					ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
-					if ui.column(id = "###output_column") { text_view(em, "###output", r.output, margins = false) }
-					ui.spacer(ui.px(em * 0.9))
-				}
-				ui.spacer(ui.px(em * 0.7))
-			}
-		}
-	}
-}
-
 ////////////////////////////////
 // The buttons
 
-// Back on the left; on the right, Close and what goes on. Installing has none: an install that started ends.
+// Back on the left; on the right, Close and what goes on. Installing has Close alone: an install that started ends,
+// and its Retry buttons are on its rows.
 @(private = "file")
 buttons :: proc(app: ^App, em: f32) {
-	if app.step == .Installing && app.bundle != nil { return }
 	ui.next({width = ui.fill(), height = ui.children_sum(), axis = .X, cross = .Center})
 	if ui.row(.Center, id = "###buttons") {
 		ui.spacer(ui.px(em * MARGIN_EM))
@@ -731,11 +770,6 @@ buttons :: proc(app: ^App, em: f32) {
 				// (the look for the programs that run, then its question: the button itself waits)
 				ui.spacer(ui.px(em * 0.5))
 				button("###install", i18n.tr("Accept and install"), lucide.DOWNLOAD, .Success, busy = true)
-			case .Done:
-				if action_enabled(app, .Retry_Failed) {
-					ui.spacer(ui.px(em * 0.5))
-					if button("###retry_failed", i18n.tr("Retry the failed ones"), lucide.ROTATE_CCW, .Primary) { retry_failed(app) }
-				}
 			}
 		}
 		ui.spacer(ui.px(em * MARGIN_EM))
@@ -808,11 +842,11 @@ section_head :: proc(em: f32, id, title: string) {
 
 // A long text (a licence, an install's output) in a framed view of its own, monospace: what does not fit scrolls.
 @(private = "file")
-text_view :: proc(em: f32, id, text: string, margins := true) {
+text_view :: proc(em: f32, id, text: string, margins := true, height_em: f32 = TEXT_VIEW_EM) {
 	line_next()
 	if ui.row(id = fmt.tprintf("%s_line", id)) {
 		if margins { ui.spacer(ui.px(em * MARGIN_EM)) }
-		ui.next({width = ui.fill(), height = ui.px(math.round(em * TEXT_VIEW_EM)), axis = .X, radius = math.round(em * 0.3)})
+		ui.next({width = ui.fill(), height = ui.px(math.round(em * height_em)), axis = .X, radius = math.round(em * 0.3)})
 		well: ^ui.Box
 		if ui.tags("input") { well = ui.build_box({.Draw_Background, .Draw_Border}, fmt.tprintf("%s_well", id)) }
 		if ui.parent(well) {

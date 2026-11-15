@@ -5,8 +5,11 @@ package atelier
 
 import "core:encoding/json"
 import "core:mem/virtual"
+import "core:os"
 import "core:strings"
 import archive "gt:archive"
+import i18n "gt:i18n"
+import update "gt:update"
 
 // Where the manifest is in the zip.
 MANIFEST :: "atelier/bundle.json"
@@ -23,6 +26,14 @@ Licence :: struct {
 	file:  string,   // its path in the zip
 }
 
+// A file of a program's release that goes beside it (Windows: the toolkit's gt_webp.dll, the console launcher
+// <slug>.com): taken out with the program into its folder, so that its install copies it and the program loads it.
+Beside :: struct {
+	file:   string,   // its path in the zip; its name beside the program is the path's last part
+	size:   i64,
+	sha256: string,
+}
+
 Program :: struct {
 	slug:       string,
 	name:       string,
@@ -35,6 +46,7 @@ Program :: struct {
 	sha256:     string,
 	logo:       string,   // its path in the zip ("": none)
 	licences:   []Licence,
+	beside:     []Beside,   // what goes beside it in its folder (none on Linux)
 	// atelier itself, the first row of the list (own.odin): its file is the running program, not the bundle's. Never
 	// read from a manifest
 	own:        bool `json:"-"`,
@@ -102,6 +114,10 @@ bundle_parse :: proc(b: ^Bundle, data: []u8) -> bool {
 		// (a file without its size and SHA-256 cannot be checked once taken out: such a manifest is refused whole. The
 		// slug atelier is atelier's own row, on the command line too)
 		if p.slug == "" || p.name == "" || p.version == "" || p.file == "" || p.size <= 0 || !slug_ok(p.slug) || !sha256_ok(p.sha256) || p.slug == APP_NAME { return false }
+		for x in p.beside {
+			name := x.file[strings.last_index_byte(x.file, '/') + 1:]
+			if x.size < 0 || !sha256_ok(x.sha256) || !slug_ok(strings.trim_suffix(strings.trim_suffix(strings.trim_suffix(name, ".dll"), ".com"), ".exe")) { return false }
+		}
 		p.own = false   // (the key "-" of a manifest would set it)
 	}
 	b.schema, b.platform, b.made, b.programs = m.schema, m.platform, m.made, m.programs
@@ -118,6 +134,22 @@ slug_ok :: proc(s: string) -> bool {
 		}
 	}
 	return true
+}
+
+// Takes the files that go beside a program out of the bundle into `folder` (its scratch folder, beside its file), each
+// checked against its size and SHA-256. why: "" when they are all there (in the language in use).
+take_out_beside :: proc(b: ^Bundle, p: Program, folder: string) -> (why: string) {
+	for x in p.beside {
+		data, err := archive.read(&b.index, x.file, allocator = context.allocator)
+		if err != .None { return i18n.tr("a file that goes beside the program cannot be read from the bundle") }
+		defer delete(data)
+		if i64(len(data)) != x.size || update.sha256_hex(data, context.temp_allocator) != x.sha256 {
+			return i18n.tr("a file that goes beside the program is damaged in the bundle")
+		}
+		out := join(folder, x.file[strings.last_index_byte(x.file, '/') + 1:], context.temp_allocator)
+		if os.write_entire_file(out, data) != nil { return i18n.tr("a file that goes beside the program cannot be written to the scratch folder") }
+	}
+	return ""
 }
 
 // A small file of the bundle (a logo, a licence), whole, on the heap; `failed`: it cannot be read.

@@ -4,6 +4,7 @@ package atelier
 // bundle into atelier's scratch folder, its state read from `<file> --status`, then `<file> --install`. Nothing here
 // runs on the window's thread: each procedure that reads or writes the disk, or starts a process, is a worker's.
 
+import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
@@ -89,6 +90,8 @@ take_out :: proc(b: ^Bundle, p: Program, allocator := context.allocator) -> (pat
 	out := join(folder, filepath.base(p.file), context.temp_allocator)
 	if os.write_entire_file(out, data) != nil { return "", i18n.tr("the file cannot be written to the scratch folder") }
 	if !make_runnable(out) { return "", i18n.tr("the file cannot be made runnable") }
+	// (what its release puts beside it: its install copies it from there, the program loads it from there)
+	if beside := take_out_beside(b, p, folder); beside != "" { return "", beside }
 	return strings.clone(out, allocator), ""
 }
 
@@ -230,11 +233,58 @@ file_free :: proc(path: string) -> bool {
 	return true
 }
 
-// Runs `<file> --install`: the program installs itself. `output` is what it said (owned), kept to show when it failed.
-install_one :: proc(path: string, allocator := context.allocator) -> (ok: bool, output: string) {
+// Runs `<file> --install`: the program installs itself. `output` is what it said (owned), kept to show when it failed;
+// `exit_code` its exit code (nil: it did not start).
+install_one :: proc(path: string, allocator := context.allocator) -> (ok: bool, output: string, exit_code: Maybe(int)) {
 	code, out, started := run_captured({path, "--install"})
-	if !started { return false, strings.clone(i18n.tr("The program does not start on this system."), allocator) }
-	return code == 0, strings.clone(strings.trim_space(out), allocator)
+	if !started { return false, strings.clone(i18n.tr("The program does not start on this system."), allocator), nil }
+	return code == 0, strings.clone(strings.trim_space(out), allocator), code
+}
+
+// The lines of an install's output that are advice, not a cause: never the reason of a failure.
+@(private = "file", rodata)
+NOISE := [?]string{"a Nix package is the better install"}
+
+// Why a phase failed, in one line (src/md/README.md, "A failed install, again"): the first line of `output` that says
+// something, advice skipped; when there is none, the phase and the exit code. In the temporary memory.
+failure_reason :: proc(output: string, phase: Install_Phase, exit_code: Maybe(int)) -> string {
+	rest := output
+	lines: for line in strings.split_lines_iterator(&rest) {
+		l := strings.trim_space(line)
+		if l == "" { continue }
+		for n in NOISE { if strings.contains(l, n) { continue lines } }
+		return l
+	}
+	code, ran := exit_code.?
+	if !ran { return fmt.tprintf(i18n.tr("The %s phase failed: atelier has no reason for it."), phase_words(phase)) }
+	return fmt.tprintf(i18n.tr("The install did not finish: the program gave no reason. Its exit code: %s"), exit_code_words(code))
+}
+
+// A phase's name, as its stepper's node says it.
+phase_words :: proc(phase: Install_Phase, own := false) -> string {
+	switch phase {
+	case .Close:   return i18n.tr("Close")
+	case .Unpack:  return i18n.tr("Unpack")
+	case .Install: return own ? i18n.tr("Copy") : i18n.tr("Install")
+	case .Check:   return i18n.tr("Check")
+	}
+	return ""
+}
+
+// An exit code as a person can look it up: a Windows NTSTATUS (above 255, or negative once read as a signed 32-bit code)
+// in hex, with its meaning when it is a common one; a small code in decimal. In the temporary memory.
+exit_code_words :: proc(code: int) -> string {
+	if code >= 0 && code <= 255 { return fmt.tprintf("%d", code) }
+	status := u32(i64(code) & 0xffff_ffff)
+	meaning: string
+	switch status {
+	case 0xC0000135: meaning = i18n.tr("a DLL that it needs is missing")
+	case 0xC000007B: meaning = i18n.tr("a DLL that it needs is not for this system")
+	case 0xC0000005: meaning = i18n.tr("it crashed")
+	case 0xC0000409: meaning = i18n.tr("it crashed")
+	}
+	if meaning == "" { return fmt.tprintf("0x%08X", status) }
+	return fmt.tprintf("0x%08X (%s)", status, meaning)
 }
 
 // Whether this system is NixOS, where a carried file does not run (its interpreter is not at /lib64).

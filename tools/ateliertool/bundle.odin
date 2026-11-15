@@ -34,6 +34,16 @@ Bundle_Program :: struct {
 	sha256:     string `json:"sha256"`,
 	logo:       string `json:"logo"`,
 	licences:   []Bundle_Licence `json:"licences"`,
+	// what goes beside the program in its folder (Windows: the toolkit's gt_webp.dll, the console launcher <slug>.com):
+	// its install copies them with it, and the program loads them from there
+	beside:     []Bundle_Beside `json:"beside"`,
+}
+
+// A file beside a program: its path in the zip, its size and SHA-256 (checked when it is taken out).
+Bundle_Beside :: struct {
+	file:   string `json:"file"`,
+	size:   i64 `json:"size"`,
+	sha256: string `json:"sha256"`,
 }
 
 Bundle_Manifest :: struct {
@@ -130,13 +140,51 @@ fetch_program :: proc(p: Suite_Program, platform: string, files: ^[dynamic]Bundl
 
 	licences, lok := fetch_licences(p, repo, tag, release.version, dir, files)
 	if !lok { return }
+	beside: []Bundle_Beside
+	if platform == "windows-x64" {
+		bok: bool
+		beside, bok = fetch_beside(p, repo, tag, release.version, dir, files)
+		if !bok { return }
+	}
 	entry = {
 		slug = p.slug, name = p.name, tagline = p.tagline, version = release.version,
 		repository = fmt.tprintf("https://github.com/%s", repo), site = p.site,
 		file = file, size = release.size, sha256 = release.sha256, logo = fmt.tprintf("%s/logo.png", p.slug),
-		licences = licences,
+		licences = licences, beside = beside,
 	}
 	return entry, true, true
+}
+
+// What a Windows release puts beside the program, from its zip (checked against the zip's .sha256): every file of it but
+// the program itself, the README, the changelog and the licences (carried apart). A release without a zip (the program
+// alone) has nothing beside it.
+@(private = "file")
+fetch_beside :: proc(p: Suite_Program, repo, tag, version, dir: string, files: ^[dynamic]Bundle_File) -> (beside: []Bundle_Beside, ok: bool) {
+	name := fmt.tprintf("%s-%s-windows-x64.zip", p.slug, version)
+	base := fmt.tprintf("https://github.com/%s/releases/download/%s", repo, tag)
+	sums, code := toolbox.capture({"curl", "-fsSL", "--retry", "5", fmt.tprintf("%s/%s.sha256", base, name)})
+	if code != 0 { return nil, true }   // (no zip in this release)
+	sum := strings.fields(sums, context.temp_allocator)
+	if len(sum) == 0 || len(sum[0]) != 64 { fmt.eprintfln("bundle: %s.sha256 does not read", name); return }
+	path := fmt.tprintf("%s/%s", dir, name)
+	if why := toolbox.download_pinned(fmt.tprintf("%s/%s", base, name), path, sum[0], quiet = true); why != "" { fmt.eprintfln("bundle: %s", why); return }
+	idx, err := archive.open(path)
+	if err != .None { fmt.eprintfln("bundle: %s: %v", path, err); return }
+	defer archive.index_destroy(&idx)
+	list := make([dynamic]Bundle_Beside, context.temp_allocator)
+	for e in idx.entries {
+		if e.dir { continue }
+		base_name := filepath.base(e.name)
+		upper := strings.to_upper(base_name, context.temp_allocator)
+		if upper == strings.to_upper(fmt.tprintf("%s.exe", p.slug), context.temp_allocator) || strings.has_prefix(upper, "README") || strings.has_prefix(upper, "CHANGELOG") || strings.contains(upper, "LICENSE") || strings.contains(upper, "LICENCE") || strings.contains(upper, "NOTICE") { continue }
+		out := fmt.tprintf("%s/beside/%s", dir, base_name)
+		if archive.extract(&idx, e.name, out) != .None { fmt.eprintfln("bundle: %s: %s cannot be taken out", path, e.name); return }
+		data, _ := os.read_entire_file(out, context.temp_allocator)
+		in_zip := fmt.tprintf("%s/beside/%s", p.slug, base_name)
+		append(&list, Bundle_Beside{file = in_zip, size = i64(len(data)), sha256 = toolbox.sha256_hex(data)})
+		append(files, Bundle_File{name = in_zip, path = out, mode = 0o644})
+	}
+	return list[:], true
 }
 
 // The licence files of a release, from its Linux archive: what it holds beside the program, the README and the changelog.

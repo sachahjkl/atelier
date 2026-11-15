@@ -27,8 +27,9 @@ demo_case_of :: proc(name: string) -> (Demo_Case, bool) {
 @(private = "file")
 DEMO_STATES := [?]State{.Absent, .Older, .Current, .Absent, .Repair, .Newer}
 
-// Gives each row its made-up state, then shows `step` as a real run would have reached it.
-demo_step :: proc(app: ^App, step: Step) {
+// Gives each row its made-up state, then shows `step` as a real run would have reached it (`finished`: Installing once
+// the installs are over).
+demo_step :: proc(app: ^App, step: Step, finished := false) {
 	app.known = true
 	carried := 0
 	for &r, i in app.rows {
@@ -59,24 +60,34 @@ demo_step :: proc(app: ^App, step: Step) {
 	app.look = look_next(app.look, .Shown)
 	app.look = look_next(app.look, .Answer)
 	app_step(app, .Next)
-	if step == .Installing { return }
+	if !finished { return }
 	failed := false
 	for &r, i in app.rows {
 		if r.result == .None { continue }
-		delete(r.output)
-		r.output = ""
-		// (the first carried program fails, with the words a program's --install says)
+		// (the first carried program fails, with the words a program's --install says, its details shown)
 		if app.demo_case == .Failure && !failed && !app.programs[i].own {
 			failed = true
-			r.result, r.phase = .Failed, .Install
-			r.output = strings.clone(fmt.tprintf("%s: the install failed: the install folder cannot be written", app.programs[i].name))
+			demo_fail(&r, app.programs[i])
+			r.details = true
 			continue
 		}
+		delete(r.output)
+		r.output, r.exit_code = "", nil
 		r.result = .Installed
 		delete(r.status.program)
 		r.status.program = demo_place(app.programs[i])
 	}
-	app.step = .Done
+	install_finished(app)
+}
+
+// A failed install of the demo: what a program's --install says when its folder cannot be written, and its exit code.
+@(private = "file")
+demo_fail :: proc(r: ^Row, p: Program) {
+	delete(r.output)
+	r.result, r.phase, r.exit_code = .Failed, .Install, 1
+	place := demo_place(p)
+	defer delete(place)
+	r.output = fmt.aprintf("%s: the install failed: the install folder cannot be written: permission denied\n  folder: %s\n  the program, its menu entry and its record are left as they were", p.name, place)
 }
 
 // A newer suite on offer in the demo: the next atelier, which carries the first two programs at their next version.
@@ -118,14 +129,14 @@ demo_install :: proc(app: ^App) {
 			continue
 		}
 		switch n {
-		case 0:  r.result = .Installed
+		case 0:
+			r.result = .Installed
+			delete(r.status.program)
+			r.status.program = demo_place(app.programs[i])
 		case 1:  r.result, r.phase = .Installing, .Check
 		case 2:
 			r.result, r.phase = .Installing, .Install
-			if app.demo_case == .Failure {
-				r.result = .Failed
-				r.output = strings.clone(fmt.tprintf("%s: the install failed: the install folder cannot be written", app.programs[i].name))
-			}
+			if app.demo_case == .Failure { demo_fail(&r, app.programs[i]) }
 		case 3:  r.result, r.phase = .Installing, r.close ? .Close : .Unpack
 		case:    r.result, r.phase = .Installing, .Unpack
 		}

@@ -6,21 +6,58 @@ import "core:testing"
 the_steps_follow_the_intent :: proc(t: ^testing.T) {
 	// (src/md/README.md, "The steps of the window"): every step and event, the step after it
 	after := [Step][Step_Event]Step{
-		.Welcome    = {.Next = .Programs, .Back = .Welcome, .Finished = .Welcome, .Retry = .Welcome},
-		.Programs   = {.Next = .Licences, .Back = .Welcome, .Finished = .Programs, .Retry = .Programs},
-		.Licences   = {.Next = .Checking, .Back = .Programs, .Finished = .Licences, .Retry = .Licences},
+		.Welcome    = {.Next = .Programs, .Back = .Welcome},
+		.Programs   = {.Next = .Licences, .Back = .Welcome},
+		.Licences   = {.Next = .Checking, .Back = .Programs},
 		// (the look for the programs that run: Next installs, Back is the person's answer to the question)
-		.Checking   = {.Next = .Installing, .Back = .Licences, .Finished = .Checking, .Retry = .Checking},
-		// (no Back: an install that started ends)
-		.Installing = {.Next = .Installing, .Back = .Installing, .Finished = .Done, .Retry = .Installing},
-		// (a retry goes back to Installing, and Finished brings it back)
-		.Done       = {.Next = .Done, .Back = .Done, .Finished = .Done, .Retry = .Installing},
+		.Checking   = {.Next = .Installing, .Back = .Licences},
+		// (the last step: an install that started ends, and its result shows on the same rows)
+		.Installing = {.Next = .Installing, .Back = .Installing},
 	}
 	for step in Step {
 		for event in Step_Event {
 			testing.expectf(t, step_next(step, event) == after[step][event], "%v + %v: %v, not %v", step, event, step_next(step, event), after[step][event])
 		}
 	}
+}
+
+@(test)
+the_install_stage_follows_the_intent :: proc(t: ^testing.T) {
+	// (src/md/README.md, "The steps of the window"): a retry never goes back to Running, so the top panel stays the summary
+	after := [Install_Stage][Stage_Event]Install_Stage{
+		// (a row retried while the first installs run: they are still the first installs)
+		.Running  = {.All_Ended = .Finished, .Retry = .Running},
+		.Finished = {.All_Ended = .Finished, .Retry = .Retrying},
+		.Retrying = {.All_Ended = .Finished, .Retry = .Retrying},
+	}
+	for s in Install_Stage {
+		for event in Stage_Event {
+			testing.expectf(t, stage_next(s, event) == after[s][event], "%v + %v: %v, not %v", s, event, stage_next(s, event), after[s][event])
+		}
+	}
+}
+
+@(test)
+a_failure_says_why_in_one_line :: proc(t: ^testing.T) {
+	// (the first line that says something; advice is no cause)
+	out := "\n  papier: on NixOS a Nix package is the better install: Nix updates it\npapier: the install failed: the folder cannot be written\n  more"
+	testing.expect_value(t, failure_reason(out, .Install, 1), "papier: the install failed: the folder cannot be written")
+	// (nothing said: the exit code; a Windows NTSTATUS in hex, with its meaning)
+	testing.expect_value(t, failure_reason("", .Install, 3), "The install did not finish: the program gave no reason. Its exit code: 3")
+	testing.expect_value(t, failure_reason("  \n", .Install, int(u32(0xC0000135))), "The install did not finish: the program gave no reason. Its exit code: 0xC0000135 (a DLL that it needs is missing)")
+	testing.expect_value(t, failure_reason("", .Unpack, nil), "The Unpack phase failed: atelier has no reason for it.")
+	// (read back as a signed 32-bit code, the same status)
+	testing.expect_value(t, exit_code_words(int(i32(-1073741819))), "0xC0000005 (it crashed)")
+	testing.expect_value(t, exit_code_words(int(u32(0xC0000142))), "0xC0000142")
+	testing.expect_value(t, exit_code_words(0), "0")
+}
+
+@(test)
+details_show_the_output_and_the_exit_code :: proc(t: ^testing.T) {
+	testing.expect_value(t, failure_details(Row{output = "it failed", exit_code = 2}), "it failed\n\nExit code: 2")
+	testing.expect_value(t, failure_details(Row{exit_code = int(u32(0xC0000135))}), "Exit code: 0xC0000135 (a DLL that it needs is missing)")
+	// (atelier's own one-line why: the reason says it all)
+	testing.expect_value(t, failure_details(Row{output = "the file cannot be read from the bundle"}), "")
 }
 
 @(test)
@@ -63,9 +100,12 @@ the_look_follows_the_intent :: proc(t: ^testing.T) {
 @(test)
 a_step_is_named_on_the_command_line :: proc(t: ^testing.T) {
 	for name, step in STEP_NAMES {
-		s, ok := step_of(name)
-		testing.expect(t, ok && s == step, name)
+		s, finished, ok := step_of(name)
+		testing.expect(t, ok && s == step && !finished, name)
 	}
-	_, ok := step_of("install")
+	// (done: the install step once over, for the demo's pictures)
+	s, finished, ok := step_of(STEP_DONE)
+	testing.expect(t, ok && s == .Installing && finished, "done is the install, finished")
+	_, _, ok = step_of("install")
 	testing.expect(t, !ok, "an unknown step is refused")
 }

@@ -55,6 +55,7 @@ App :: struct {
 	programs:     []Program,       // atelier's own first (own_program), then the bundle's in its order; empty without a bundle
 	rows:         []Row,           // one per program of `programs`, in its order
 	step:         Step,
+	stage:        Install_Stage,   // Installing: whether the installs are under way (wizard.odin)
 	look:         Look,            // the look for the programs that run, one at a time (wizard.odin)
 	batch:        [dynamic]int,    // the rows of the look under way: they start once it ends
 	asking:       [dynamic]int,    // the rows of the batch whose copy runs: the question names them
@@ -176,7 +177,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	}
 	if app.bundle != nil { start_ask(app) }
 	app.step = opts.step
-	if app.demo { demo_step(app, opts.step) }
+	if app.demo { demo_step(app, opts.step, opts.finished) }
 	// (the demo reaches no network and reads no install: the pictures show the steps alone)
 	if !app.demo {
 		updates_start(app)
@@ -375,7 +376,10 @@ app_step :: proc(app: ^App, event: Step_Event) {
 		// (the demo's look is made up: demo_step says what it shows)
 		if !app.demo { look_start(app) }
 	}
-	if from == .Checking && next == .Installing && app.demo { demo_install(app) }
+	if next == .Installing {
+		app.stage = .Running
+		if app.demo { demo_install(app) }
+	}
 }
 
 // The rows chosen.
@@ -702,6 +706,7 @@ Install_Job :: struct {
 	phase:   Install_Phase,   // the phase that ran last (where it failed when !ok)
 	ok:      bool,
 	output:  string,
+	exit_code: Maybe(int),    // the --install's (nil: the phase that failed ran no process)
 	status:  Status,          // read again after the install: where the program is now
 }
 
@@ -721,7 +726,7 @@ install_go :: proc(app: ^App) {
 		// (atelier's own has nothing to take out nor to close: install_steps skips them)
 		r.phase = p.own ? .Install : r.close ? .Close : .Unpack
 		delete(r.output)
-		r.output = ""
+		r.output, r.exit_code, r.details = "", nil, false
 		j := new(Install_Job)
 		j.bundle, j.program, j.index, j.scratch, j.phase = app.bundle, p, i, strings.clone(r.scratch), r.phase
 		j.close, j.exe, j.quits = r.close, strings.clone(r.status.program), r.status.quits
@@ -732,11 +737,11 @@ install_go :: proc(app: ^App) {
 	install_finished(app)
 }
 
-// The Done step once no row installs any more.
+// The Installing step's stage Finished once no row installs any more.
 install_finished :: proc(app: ^App) {
 	if app.step != .Installing { return }
 	for r in app.rows { if result_busy(r.result) { return } }
-	app_step(app, .Finished)
+	app.stage = stage_next(app.stage, .All_Ended)
 }
 
 // Starts the failed rows `rows` again, their whole way (src/md/README.md, "A failed install, again"). One look at a time:
@@ -749,11 +754,13 @@ retry :: proc(app: ^App, rows: []int) {
 		if r.result != .Failed { continue }
 		r.result, r.close, r.phase = result_next(r.result, .Retry), false, {}
 		delete(r.output)
-		r.output = ""
+		r.output, r.exit_code, r.details = "", nil, false
 		append(&app.batch, i)
 	}
 	if len(app.batch) == 0 { return }
-	app_step(app, .Retry)
+	// (a row retried while others still install: the stage stays as it is, Running or Retrying)
+	app.stage = stage_next(app.stage, .Retry)
+	app.copied = -1
 	if app.demo { install_go(app); return }
 	look_start(app)
 }
@@ -767,7 +774,7 @@ retry_failed :: proc(app: ^App) {
 
 // Whether a retry can start now: a row failed, and no look is under way.
 retry_possible :: proc(app: ^App) -> bool {
-	if app.look != .Idle || (app.step != .Installing && app.step != .Done) { return false }
+	if app.look != .Idle || app.step != .Installing { return false }
 	for r in app.rows { if r.result == .Failed { return true } }
 	return false
 }
@@ -811,7 +818,7 @@ install_work :: proc(data: rawptr) {
 	if j.scratch == "" { j.scratch, why = take_out(j.bundle, p) }
 	if why != "" { j.output = strings.clone(why); return }
 	phase_post(j, .Install)
-	j.ok, j.output = install_one(j.scratch)
+	j.ok, j.output, j.exit_code = install_one(j.scratch)
 	if !j.ok { return }
 	// Check: the carried version is the one installed now
 	phase_post(j, .Check)
@@ -850,7 +857,13 @@ install_done :: proc(data: rawptr, _: u64) {
 		return
 	}
 	r := &app.rows[j.index]
-	r.result, r.phase = result_next(r.result, j.ok ? .Succeed : .Fail), j.phase
+	r.result, r.phase, r.exit_code, r.details = result_next(r.result, j.ok ? .Succeed : .Fail), j.phase, j.exit_code, false
+	// (the window's lines go when atelier ends: the log keeps the whole failure. gt:log's writer thread writes it)
+	if !j.ok {
+		code := "-"
+		if c, ran := j.exit_code.?; ran { code = exit_code_words(c) }
+		log.errorf("%s %s: the %v phase failed (exit code %s):\n%s", j.program.slug, j.program.version, j.phase, code, j.output != "" ? j.output : "(no output)")
+	}
 	delete(r.output)
 	r.output, j.output = j.output, ""
 	if j.ok {

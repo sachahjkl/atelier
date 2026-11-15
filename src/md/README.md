@@ -47,6 +47,18 @@ the file and checks the SHA-256. The licence files come from the release's archi
 it but the program, the README and the changelog. A program without a file for a platform is not in that platform's
 bundle (inspecteur is Linux only).
 
+### What goes beside a program
+
+A Windows release puts files beside the program: the toolkit's `gt_webp.dll` (gui_toolkit's `desktop.TOOLKIT_FILES`,
+which the program loads from its folder) and the console launcher `<slug>.com`. Its install copies them from beside the
+running file when they are there, and does not fail when they are not. So a bundle that carried the `.exe` alone
+installed programs without them: no WebP images, no `<slug>` command in a terminal. The bundle now carries them in
+`<slug>/beside/`, each named in the manifest's `beside` list with its size and SHA-256, taken from the release's zip
+(itself checked against its `.sha256`). Taking a program out puts them beside its file, each checked.
+
+Refused: the release's zip as the only source of the program. opencode native publishes no Windows zip, and the
+update manifest stays the single signed name of the program's file.
+
 ## Never behind a program
 
 A release of atelier publishes, beside each file, its manifest (`atelier-<version>-<platform>.json`) and the signed
@@ -109,10 +121,25 @@ unsaved work in it.
 
 ## A failed install, again
 
-A failed row shows why, and a button "Retry" (the icon `ROTATE_CCW`), on the Installing and the Done steps. The Done step
-also has "Retry the failed ones" when at least one failed. A retry runs the row's whole way again: the look, the
-question when the program runs, then Close, Unpack, Install and Check. Its stepper starts again. One look at a time: the
-Retry buttons wait while a look or its question is under way.
+A failed row says why on its own line, under its stepper: the reason (below), in the danger tone with the icon
+`ALERT_CIRCLE`, and a "Details" toggle that shows the whole output in a monospace view with a Copy button. Its "Retry"
+(the icon `ROTATE_CCW`) is at the row's end, right of the stepper. Once the installs are over, the panel at the top also
+has "Retry the failed ones". A retry runs the row's whole way again: the look, the question when the program runs, then
+Close, Unpack, Install and Check. Its stepper starts again in place: the row neither moves nor leaves the step. One look
+at a time: the Retry buttons wait while a look or its question is under way.
+
+The reason is the first line of the output that says something (`failure_reason`): the program's `--install` output, or
+atelier's own why for the other phases. Lines that are advice and not a cause ("on NixOS a Nix package is the better
+install") are skipped. When the program said nothing, the reason names the phase and the exit code: "The install did not
+finish: the program gave no reason. Its exit code: 3". The row keeps the exit code for it, and Details shows it too.
+A Windows exit code above 255 is an NTSTATUS: it is shown in hex, with its meaning when atelier knows it
+(`0xC0000135`: a DLL that it needs is missing; `0xC0000005`: it crashed). A decimal 3221225781 says nothing to anyone.
+
+Every failed phase is also written to atelier's log (gt:log): the program, the phase, the exit code and the whole output.
+The window's lines go when atelier ends; the log stays, so a failure can be found again and sent. `atelier install`
+prints the exit code beside "failed".
+
+Refused: the reason in the Retry button's tooltip only (0.4.0). A person on Windows saw the failure and no cause.
 
 Two processes started at the same moment can inherit each other's handles. Only the start is serialised (a lock), and
 each program writes its output to a file of its own, not to a pipe: a pipe's reader waits for every process that holds
@@ -176,7 +203,7 @@ Its row differs from a carried program's in what runs, not in what it shows:
   `setup.install(setup_options(), desktop_shortcut = false)` copies the running file (the program and its bundle) into
   its folder, writes its menu entry and its record. Check reads the facts again: the installed copy's version must be
   `APP_VERSION`.
-- **Done** offers no Open for atelier: it is open. Its row says that it is in the applications menu.
+- **Installed**, its row offers no Open: atelier is open. Its row says that it is in the applications menu.
 - The NixOS notice lists the carried programs only: atelier from Nix carries no bundle.
 
 ## The steps of the window
@@ -184,10 +211,28 @@ Its row differs from a carried program's in what runs, not in what it shows:
 One window, one step at a time. The steps are an explicit state machine (`Step` in `src/wizard.odin`):
 
 ```
-Welcome -> Programs -> Licences -> Checking -> Installing -> Done
-             ^  |         |  ^         |            ^          |
-             +--+---------+  +---------+ (Back)     +----------+ (Retry)
+Welcome -> Programs -> Licences -> Checking -> Installing
+             ^  |         |  ^         |
+             +--+---------+  +---------+ (Back)
 ```
+
+Installing is the last step: the install's progress and its result are one screen. Its own stage (`Install_Stage`,
+`stage_next`) says whether the installs are under way:
+
+```
+Running -> Finished -> Retrying
+              ^           |
+              +-----------+ (all ended)
+```
+
+- **Running**: the first installs; some row is Waiting or Installing.
+- **Finished**: no row is busy. The top panel is the summary.
+- **Retrying**: a retry is under way. The top panel stays the summary, its "Retry the failed ones" busy, its counts
+  live: going back to the progress panel would move the whole screen for one row.
+
+Refused: a Done step after Installing (until 0.4.0). Every row's stepper disappeared at once for another list, a failed
+row's Retry took the person back to the other screen, and the reason of a failure was one tooltip away. One row per
+program, from its first phase to its result, keeps each program where the person watched it.
 
 Each chosen program has its own result (`Result`, `result_next`):
 
@@ -218,10 +263,18 @@ Idle -> Reading -> To_Ask -> Asking -> Idle (the answer)
   Next is "Accept and install".
 - **Checking**: the Licences step while the look for running copies reads, and while its question is open. Its button
   turns. The title bar shows Licences.
-- **Installing**: one line per chosen program, all installing at once, each with its stepper (Close, Unpack, Install,
-  Check) and a bar for the whole. No Back: an install that started ends. A failed line has Retry.
-- **Done**: what was installed, where it is, and a button per installed program that starts it. A failed install shows
-  its output and Retry; "Retry the failed ones" retries them all. A retry goes back to Installing.
+- **Installing**: one row per chosen program, all installing at once, each with its stepper (Close, Unpack, Install,
+  Check) from the first phase to the end. Above them, a panel: while Running, the count and a bar for the whole; once
+  Finished, in place, the summary ("5 programs are installed", or "4 installed, 1 failed"), the menu's note and "Retry
+  the failed ones". The only button under it is Close: an install that started ends, so no Back.
+
+  A row keeps its stepper the whole time; what changes is in place. Its end is an area of a fixed width, reserved from
+  the start, so that no stepper shifts when a button appears there:
+  - installed: "Open" at the end (atelier's own: none), and under the stepper the installed path, weak, with `FOLDER`;
+  - failed: "Retry" at the end, and under the stepper the reason, "Details" and the output (above);
+  - retried: the reason goes, its stepper starts again.
+
+  The lines under the stepper grow the row's height. The toolkit has no size animation: they appear plainly.
 
 Closing the window during Installing waits for the programs that are installing, then ends (the worker never leaves a half
 copy: each program's own install writes atomically).

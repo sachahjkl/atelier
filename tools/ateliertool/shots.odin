@@ -36,12 +36,14 @@ SHOTS := [?]Shot{
 	{name = "main", step = "programs", seen = "This installer, kept on your computer"},
 	{name = "welcome", step = "welcome", seen = "Froment Software"},
 	{name = "licences", step = "licences", seen = "MIT License"},
+	// (the install under way: the steppers side by side, the count and the bar)
 	{name = "installing", step = "installing", seen = "Copy"},
-	{name = "done", step = "done", seen = "Papier"},
+	// (the same step once over: each row's Open and its folder, the summary in the top panel)
+	{name = "done", step = "done", seen = "programs are installed"},
 	// (the question before the installs: two programs of the demo run)
 	{name = "close", step = "checking", seen = "Close them and install"},
-	// (a failed install and its Retry)
-	{name = "retry", step = "done", seen = "Retry the failed ones", flags = {"--demo-case", "failure"}},
+	// (the same step once over, one install failed: its reason under its stepper, its output open, its Retry)
+	{name = "retry", step = "done", seen = "Exit code: 1", flags = {"--demo-case", "failure"}},
 	// (a newer suite on offer: its banner, and the notes of the rows it updates)
 	{name = "update", step = "programs", seen = "Update atelier and the programs", flags = {"--demo-case", "update"}},
 	// (the settings on their Appearance page: atelier's theme first among the cards)

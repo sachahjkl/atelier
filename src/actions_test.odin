@@ -68,9 +68,9 @@ the_actions_follow_the_step :: proc(t: ^testing.T) {
 	app.step = .Installing
 	testing.expect(t, !action_enabled(&app, .Back), "Installing: no Back")
 	testing.expect(t, !action_enabled(&app, .Retry_Failed), "Installing: nothing failed, no Retry")
-	app.step = .Done
+	app.stage = .Finished
 	app.rows[0].result = .Failed
-	testing.expect(t, action_enabled(&app, .Retry_Failed), "Done: a row failed, Retry")
+	testing.expect(t, action_enabled(&app, .Retry_Failed), "Installing, finished: a row failed, Retry")
 	app.look = .Asking
 	testing.expect(t, !action_enabled(&app, .Retry_Failed), "one look at a time")
 }

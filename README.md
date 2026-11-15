@@ -36,14 +36,16 @@ Each release of atelier carries the latest release of each program. Its notes sa
 3. **Install**: a program that is open is named first, and closed once you agree. Then the programs install themselves
    side by side, each with its steps (close, unpack, install, check), as its own Install button does: its folder in your
    profile, its menu entry, its uninstaller (Settings > Apps on Windows). No administrator.
-4. **Done**: a button opens each program. Each one updates itself from then on. A failed install has Retry.
+
+   On the same screen, each program's line then shows its result: Open and its folder once it is installed, or the
+   reason of a failure, its whole output and Retry. Each program updates itself from then on.
 
 | | |
 |---|---|
 | ![Licences](docs/screenshots/licences.png) | ![Install](docs/screenshots/installing.png) |
 | The licences of what you chose | Side by side, each with its steps |
-| ![Programs that are open](docs/screenshots/close.png) | ![A failed install and its Retry](docs/screenshots/retry.png) |
-| A program that is open is closed first | A failed install, tried again |
+| ![Programs that are open](docs/screenshots/close.png) | ![A failed install: its reason, its output and its Retry](docs/screenshots/retry.png) |
+| A program that is open is closed first | A failed install says why, on its own line |
 
 ## atelier itself
 

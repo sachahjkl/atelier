@@ -19,7 +19,7 @@ manifest_of :: proc(size: int, sha: string) -> string {
 
 // A bundle written after a stand-in for atelier's own bytes, as `ateliertool package` writes it.
 @(private = "file")
-bundle_write :: proc(t: ^testing.T, dir: string, manifest: string, program: []u8) -> string {
+bundle_write :: proc(t: ^testing.T, dir: string, manifest: string, program: []u8, beside: []u8 = nil) -> string {
 	host := join(dir, "host", context.temp_allocator)
 	testing.expect(t, os.write_entire_file(host, transmute([]u8)string("\x7fELF stand-in for atelier's bytes")) == nil)
 	out := join(dir, "atelier", context.temp_allocator)
@@ -27,6 +27,7 @@ bundle_write :: proc(t: ^testing.T, dir: string, manifest: string, program: []u8
 	archive.zip_begin(&w, out, after = host)
 	if manifest != "" { archive.zip_add(&w, MANIFEST, transmute([]u8)manifest) }
 	archive.zip_add(&w, "papier/papier", program, mode = 0o755)
+	if beside != nil { archive.zip_add(&w, "papier/gt_webp.dll", beside) }
 	archive.zip_add(&w, "papier/LICENSE", transmute([]u8)string("MIT License\n\nCopyright (c) 2026\n"))
 	testing.expect_value(t, archive.zip_end(&w), archive.Error.None)
 	return out
@@ -80,6 +81,53 @@ a_manifest_that_cannot_be_checked_is_refused :: proc(t: ^testing.T) {
 		testing.expectf(t, b == nil && err == .Bad_Manifest, "%q is refused", manifest)
 		bundle_destroy(b)
 	}
+}
+
+// A manifest of one program with one file beside it (src/md/README.md, "What goes beside a program").
+@(private = "file")
+manifest_beside :: proc(program: []u8, beside_size: int, beside_sha: string) -> string {
+	return fmt.tprintf(`{{"schema": 1, "platform": "windows-x64", "made": "2026-11-15",
+ "programs": [{{"slug": "papier", "name": "Papier", "tagline": "A fast clipboard history.",
+   "version": "0.23.2", "repository": "https://github.com/sachahjkl/papier", "site": "https://papier.froment.software/",
+   "file": "papier/papier", "size": %d, "sha256": "%s",
+   "beside": [{{"file": "papier/gt_webp.dll", "size": %d, "sha256": "%s"}}],
+   "licences": [{{"title": "MIT License", "file": "papier/LICENSE"}}]}}]}}`, len(program), update.sha256_hex(program, context.temp_allocator), beside_size, beside_sha)
+}
+
+@(test)
+what_goes_beside_a_program_is_taken_out_checked :: proc(t: ^testing.T) {
+	dir := testkit.temp_folder(t, "atelier")   // (its cleanup frees it)
+	program := transmute([]u8)string("the program's bytes")
+	dll := transmute([]u8)string("MZ the library's bytes")
+	path := bundle_write(t, dir, manifest_beside(program, len(dll), update.sha256_hex(dll, context.temp_allocator)), program, dll)
+	b, err := bundle_open(path)
+	testing.expect_value(t, err, Bundle_Error.None)
+	if b == nil { return }
+	defer bundle_destroy(b)
+	p := b.programs[0]
+	testing.expect_value(t, len(p.beside), 1)
+	if len(p.beside) != 1 { return }
+	testing.expect_value(t, p.beside[0].file, "papier/gt_webp.dll")
+	// (written beside the program, under its last name)
+	good := join(dir, "good", context.temp_allocator)
+	testing.expect(t, os.make_directory(good) == nil)
+	testing.expect_value(t, take_out_beside(b, p, good), "")
+	written, rerr := os.read_entire_file(join(good, "gt_webp.dll", context.temp_allocator), context.temp_allocator)
+	testing.expect(t, rerr == nil && string(written) == string(dll), "the file beside is the bundle's")
+
+	// (a SHA-256 that is not the file's: refused, and nothing written)
+	wrong := join(dir, "wrong", context.temp_allocator)
+	testing.expect(t, os.make_directory(wrong) == nil)
+	other := update.sha256_hex(transmute([]u8)string("another file"), context.temp_allocator)
+	bad_dir := join(dir, "bad", context.temp_allocator)
+	testing.expect(t, os.make_directory(bad_dir) == nil)
+	bad_path := bundle_write(t, bad_dir, manifest_beside(program, len(dll), other), program, dll)
+	bad, berr := bundle_open(bad_path)
+	testing.expect_value(t, berr, Bundle_Error.None)
+	if bad == nil { return }
+	defer bundle_destroy(bad)
+	testing.expect(t, take_out_beside(bad, bad.programs[0], wrong) != "", "a file beside whose SHA-256 differs is refused")
+	testing.expect(t, !os.exists(join(wrong, "gt_webp.dll", context.temp_allocator)), "a refused file is not written")
 }
 
 @(test)

@@ -82,6 +82,15 @@ fr %s (Entrée)
 en After its install, the program says: %s
 fr Après son installation, le programme indique : %s
 
+en a file that goes beside the program cannot be read from the bundle
+fr un fichier qui accompagne le programme ne peut pas être lu dans le paquet
+
+en a file that goes beside the program is damaged in the bundle
+fr un fichier qui accompagne le programme est endommagé dans le paquet
+
+en a file that goes beside the program cannot be written to the scratch folder
+fr un fichier qui accompagne le programme ne peut pas être écrit dans le dossier de travail
+
 en this system names no cache folder
 fr ce système n'indique aucun dossier de cache
 
@@ -114,6 +123,36 @@ fr le fichier du programme reste utilisé
 
 en The program does not start on this system.
 fr Le programme ne démarre pas sur ce système.
+
+en The %s phase failed: atelier has no reason for it.
+fr L'étape %s a échoué : atelier n'en connaît pas la raison.
+
+en The install did not finish: the program gave no reason. Its exit code: %s
+fr L'installation n'a pas abouti : le programme n'a donné aucune raison. Son code de sortie : %s
+
+en Close
+fr Fermer
+
+en Unpack
+fr Extraire
+
+en Copy
+fr Copier
+
+en Install
+fr Installation
+
+en Check
+fr Vérifier
+
+en a DLL that it needs is missing
+fr une DLL dont il a besoin est absente
+
+en a DLL that it needs is not for this system
+fr une DLL dont il a besoin n'est pas faite pour ce système
+
+en it crashed
+fr il s'est arrêté brutalement
 
 en the file taken out cannot be read
 fr le fichier extrait ne peut pas être lu
@@ -183,9 +222,6 @@ fr Retour aux étapes
 en Licences
 fr Licences
 
-en Install
-fr Installation
-
 en The list of programs this copy of atelier carries cannot be read: download atelier again.
 fr La liste des programmes de cette copie d'atelier ne peut pas être lue : téléchargez atelier à nouveau.
 
@@ -224,9 +260,6 @@ fr Ce système est NixOS : Nix est la meilleure installation, il met les program
 en Copied
 fr Copié
 
-en Copy
-fr Copier
-
 en %s available
 fr %s disponible
 
@@ -248,32 +281,11 @@ fr Installation : %d sur %d terminés
 en The programs install themselves side by side. If you close the window, those under way end their install first.
 fr Les programmes s'installent côte à côte. Si vous fermez la fenêtre, ceux en cours terminent d'abord leur installation.
 
-en Retry
-fr Réessayer
+en %d installed, %d installing again.
+fr %d installés, %d en cours de réinstallation.
 
-en Close
-fr Fermer
-
-en Unpack
-fr Extraire
-
-en Check
-fr Vérifier
-
-en Failed
-fr Échec
-
-en Waiting
-fr En attente
-
-en Installing…
-fr Installation…
-
-en Installed
-fr Installé
-
-en Installed: it is in the applications menu
-fr Installé : il est dans le menu des applications
+en Each one is in the applications menu, and updates itself.
+fr Chacun est dans le menu des applications, et se met à jour de lui-même.
 
 en Done: %d program is installed.
 en+ Done: %d programs are installed.
@@ -283,11 +295,26 @@ fr+ Terminé : %d programmes sont installés.
 en %d installed, %d failed.
 fr %d installés, %d en échec.
 
-en Each one is in the applications menu, and updates itself.
-fr Chacun est dans le menu des applications, et se met à jour de lui-même.
+en Retry the failed ones
+fr Réessayer celles qui ont échoué
+
+en Retry
+fr Réessayer
 
 en Open
 fr Ouvrir
+
+en Installed: it is in the applications menu
+fr Installé : il est dans le menu des applications
+
+en Details
+fr Détails
+
+en Exit code: %s
+fr Code de sortie : %s
+
+en Failed
+fr Échec
 
 en Choose the programs
 fr Choisir les programmes
@@ -298,9 +325,6 @@ fr Suivant
 en Accept and install
 fr Accepter et installer
 
-en Retry the failed ones
-fr Réessayer celles qui ont échoué
-
 en Reading…
 fr Lecture…
 
@@ -309,6 +333,9 @@ fr Non installé
 
 en Update from %s
 fr Mise à jour depuis %s
+
+en Installed
+fr Installé
 
 en %s installed
 fr %s installé

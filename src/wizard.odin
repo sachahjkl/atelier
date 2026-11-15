@@ -4,23 +4,24 @@ package atelier
 // result, and the look for the programs that run. Each one changes only through its `_next` procedure; what a step
 // needs before Next (a box ticked) is the view's: its button is disabled.
 //
-//   Welcome -> Programs -> Licences -> Checking -> Installing -> Done
-//                ^  |         |  ^         |            ^          |
-//                +--+---------+  +---------+ (Back)     +----------+ (Retry)
+//   Welcome -> Programs -> Licences -> Checking -> Installing
+//                ^  |         |  ^         |
+//                +--+---------+  +---------+ (Back)
+//
+// Installing is the last step: its own stage (Install_Stage) says whether the installs are under way.
 
 import "core:strings"
 import "gt:render"
 
-Step :: enum u8 { Welcome, Programs, Licences, Checking, Installing, Done }
+Step :: enum u8 { Welcome, Programs, Licences, Checking, Installing }
 
 Step_Event :: enum u8 {
-	Next,       // Choose the programs, Next, Accept and install; Checking: no program runs, or the person closes them
-	Back,       // Checking: the person answered Back to the question
-	Finished,   // the last install ended
-	Retry,      // Done: a failed install starts again
+	Next,   // Choose the programs, Next, Accept and install; Checking: no program runs, or the person closes them
+	Back,   // Checking: the person answered Back to the question
 }
 
-// The step after `event` on `step`. Installing has no Back: an install that started ends.
+// The step after `event` on `step`. Installing has no way out: an install that started ends, and its result shows on
+// the same rows.
 step_next :: proc(step: Step, event: Step_Event) -> Step {
 	switch step {
 	case .Welcome:
@@ -41,19 +42,47 @@ step_next :: proc(step: Step, event: Step_Event) -> Step {
 		case .Back: return .Licences
 		}
 	case .Installing:
-		if event == .Finished { return .Done }
-	case .Done:
-		if event == .Retry { return .Installing }
 	}
 	return step
 }
 
-// The name of a step on the command line (--step).
-STEP_NAMES := [Step]string{.Welcome = "welcome", .Programs = "programs", .Licences = "licences", .Checking = "checking", .Installing = "installing", .Done = "done"}
+// The stage of the Installing step:
+//
+//   Running -> Finished -> Retrying
+//                 ^           |
+//                 +-----------+ (all ended)
+//
+// Retrying is not Running again: its top panel stays the summary, with "Retry the failed ones" busy, so that a retry
+// moves nothing on the screen.
+Install_Stage :: enum u8 {
+	Running,    // the first installs: some row is Waiting or Installing
+	Finished,   // no row is busy: the summary
+	Retrying,   // a retry is under way
+}
 
-step_of :: proc(name: string) -> (Step, bool) {
-	for n, s in STEP_NAMES { if n == name { return s, true } }
-	return .Welcome, false
+Stage_Event :: enum u8 {
+	All_Ended,   // no row is busy any more
+	Retry,       // failed rows start again
+}
+
+stage_next :: proc(s: Install_Stage, event: Stage_Event) -> Install_Stage {
+	switch s {
+	case .Running, .Retrying:
+		if event == .All_Ended { return .Finished }
+	case .Finished:
+		if event == .Retry { return .Retrying }
+	}
+	return s
+}
+
+// The name of a step on the command line (--step). `done` is not a step: it is Installing once Finished (the demo).
+STEP_NAMES := [Step]string{.Welcome = "welcome", .Programs = "programs", .Licences = "licences", .Checking = "checking", .Installing = "installing"}
+STEP_DONE :: "done"
+
+step_of :: proc(name: string) -> (step: Step, finished: bool, ok: bool) {
+	if name == STEP_DONE { return .Installing, true, true }
+	for n, s in STEP_NAMES { if n == name { return s, false, true } }
+	return .Welcome, false, false
 }
 
 // The phases of one program's install, shown as its stepper's nodes: the copy that runs closed (Skipped when none ran),
@@ -159,6 +188,8 @@ Row :: struct {
 	phase:     Install_Phase,   // Installing: the phase under way; Failed: the phase that failed
 	close:     bool,            // a copy of it ran and the person agreed to close it: its Close phase runs
 	output:    string,          // what its --install said, or why a phase failed (owned)
+	exit_code: Maybe(int),      // its --install's exit code (nil: the phase that failed ran no process)
+	details:   bool,            // Failed: its whole output is shown
 }
 
 row_destroy :: proc(r: ^Row) {

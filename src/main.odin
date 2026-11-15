@@ -38,11 +38,11 @@ USAGE :: `atelier: Froment Software's programs, chosen and installed at once
   atelier --bundle <file>         the programs of another file (a bundle made by ateliertool bundle)
   atelier --demo                  the window with made-up states: nothing is read of this computer, nothing runs
                                   (the pictures of the site); the names, logos and licences are the bundle's
-  atelier --step <name>           the window on a step: welcome, programs, licences, checking, installing, done (with
-                                  --demo: the pictures, checking with programs that run; without it, welcome or
-                                  programs only)
-  atelier --demo-case <name>      with --demo: failure (one install fails) or update (a newer suite is on offer):
-                                  the pictures of Retry and of the suite's update
+  atelier --step <name>           the window on a step: welcome, programs, licences, checking, installing, or done
+                                  (the install step once over) (with --demo: the pictures, checking with programs
+                                  that run; without it, welcome or programs only)
+  atelier --demo-case <name>      with --demo: failure (one install fails: its reason and its output shown) or
+                                  update (a newer suite is on offer): the pictures of Retry and of the suite's update
   atelier --after-update          the window on the programs after atelier updated itself: those installed at an
                                   older version than it carries are ticked
   atelier --look=dark|light       --pref appearance.mode=dark|light: the window dark or light for this run
@@ -65,6 +65,7 @@ Run_Options :: struct {
 	demo_case:  Demo_Case,   // with demo: what more it shows
 	after_update: bool,      // this run is the new copy after the suite's update: on Programs, with its line
 	step:       Step,
+	finished:   bool,             // with step Installing (--step done): the installs over
 	last_crash: string,           // the report of the last run, which crashed ("": it ended cleanly)
 	owner:      instance.Owner,   // the single instance, held by this process (state None: not held)
 }
@@ -83,9 +84,9 @@ run :: proc(all_args: []string) -> int {
 			case "--bundle":
 				opts.bundle = all_args[i]
 			case "--step":
-				s, ok := step_of(all_args[i])
+				s, finished, ok := step_of(all_args[i])
 				if !ok { process.console_error(fmt.tprintf("atelier: no step %s\n", all_args[i])); return 2 }
-				opts.step, step_asked = s, true
+				opts.step, opts.finished, step_asked = s, finished, true
 			case "--demo-case":
 				c, ok := demo_case_of(all_args[i])
 				if !ok { process.console_error(fmt.tprintf("atelier: no demo case %s\n", all_args[i])); return 2 }
@@ -215,6 +216,7 @@ install_run :: proc(path: string, slugs: []string, close := false) -> int {
 		file, why := take_out(b, p^, context.temp_allocator)
 		ok: bool
 		output: string
+		exit_code: Maybe(int)
 		if why != "" {
 			ok, output = false, strings.clone(why)
 		} else {
@@ -240,10 +242,15 @@ install_run :: proc(path: string, slugs: []string, close := false) -> int {
 			if not_closed != "" {
 				ok, output = false, strings.clone(not_closed)
 			} else {
-				ok, output = install_one(file)
+				ok, output, exit_code = install_one(file)
 			}
 		}
-		process.console_write(fmt.tprintf("%s %s: %s\n", p.slug, p.version, ok ? "installed" : "failed"))
+		result := "installed"
+		if !ok {
+			result = "failed"
+			if code, ran := exit_code.?; ran { result = fmt.tprintf("failed (exit code %s)", exit_code_words(code)) }
+		}
+		process.console_write(fmt.tprintf("%s %s: %s\n", p.slug, p.version, result))
 		if output != "" { process.console_write(fmt.tprintf("    %s\n", indent(output))) }
 		delete(output)
 		scratch_remove(p^)

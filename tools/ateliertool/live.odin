@@ -202,9 +202,17 @@ live_window :: proc() -> bool {
 		fmt.println("live: the papier that ran is closed")
 	}
 	step(&c, "1 failed", "", LIVE_WAIT) or_return
+	// (the reason on the failed row itself, under its stepper: the first line of its --install's output)
+	step(&c, "the install failed", "", SHOTS_WAIT) or_return
 	if os.remove(obstacle) != nil { fmt.eprintfln("live: %s cannot be removed", obstacle); return false }
-	step(&c, "Retry the failed ones", "Retry the failed ones", SHOTS_WAIT) or_return
+	// (the row's own Retry, not the panel's "Retry the failed ones": the row starts again in place)
+	cdp.wait_idle(&c, SHOTS_WAIT)
+	if !live_click_exact(&c, "Retry") { return false }
 	step(&c, "programs are installed", "", LIVE_WAIT) or_return
+	// (the same step all along: the rows keep their steppers, and nothing is left to retry)
+	if len(cdp.find(&c, "Unpack")) == 0 { fmt.eprintln("live: the rows' steppers are gone after the retry"); return false }
+	if live_exact(&c, "Retry") >= 0 || len(cdp.find(&c, "Retry the failed ones")) > 0 { fmt.eprintln("live: a Retry is left after the retry succeeded"); return false }
+	fmt.println("live: the failed row retried from its own line, on the same step")
 	cdp.close(&c)
 
 	list, code := toolbox.capture({PROGRAM, "--bundle", bundle, "list"}, {env = env[:]})
@@ -214,6 +222,32 @@ live_window :: proc() -> bool {
 	if !live_own_installed(list, data) { return false }
 	if _, scode := toolbox.capture({PROGRAM, "--bundle", bundle, "--status"}, {env = env[:]}); scode != 0 { fmt.eprintfln("live: atelier --status says %d after the window's install", scode); return false }
 	fmt.printfln("live: every program installed from the window, side by side, atelier with them; %sa failure retried", windowless ? "" : "papier closed first, ")
+	return true
+}
+
+// The index, among the boxes whose text holds `text` (Toolkit.find, Toolkit.click's index), of the first whose text is
+// `text` exactly: a row's "Retry", not the panel's "Retry the failed ones". -1: none.
+@(private = "file")
+live_exact :: proc(c: ^cdp.Client, text: string) -> int {
+	for b, i in cdp.find(c, text) { if strings.trim_space(b.text) == text { return i } }
+	return -1
+}
+
+// Clicks the box whose text is `text` exactly.
+@(private = "file")
+live_click_exact :: proc(c: ^cdp.Client, text: string) -> bool {
+	i := live_exact(c, text)
+	if i < 0 {
+		shot := fmt.tprintf("%s/window/failed.png", LIVE_DIR)
+		cdp.shot(c, shot)
+		fmt.eprintfln("live: no button %q (the window: %s)", text, shot)
+		return false
+	}
+	if _, ok := cdp.call(c, "Toolkit.click", fmt.tprintf(`{{"text":%s,"index":%d,"count":1,"button":"left"}}`, cdp.quote(text), i)); !ok {
+		fmt.eprintfln("live: %q cannot be clicked", text)
+		return false
+	}
+	fmt.printfln("live: clicked %s", text)
 	return true
 }
 
