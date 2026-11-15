@@ -33,14 +33,15 @@ Each release of atelier carries the latest release of each program. Its notes sa
 1. **Programs**: each program says what is installed: nothing yet, an older version (ticked: it is updated), or the same
    version (not ticked).
 2. **Licences**: the licence of each program you chose, and of what it includes (icons, fonts).
-3. **Install**: each program installs itself, one after the other, as its own Install button does: its folder in your
+3. **Install**: the programs install themselves side by side, each with its steps (unpack, install, check), as its own
+   Install button does: its folder in your
    profile, its menu entry, its uninstaller (Settings > Apps on Windows). No administrator.
 4. **Done**: a button opens each program. Each one updates itself from then on.
 
 | | |
 |---|---|
 | ![Licences](docs/screenshots/licences.png) | ![Install](docs/screenshots/installing.png) |
-| The licences of what you chose | One program after the other |
+| The licences of what you chose | Side by side, each with its steps |
 
 ## Download
 
