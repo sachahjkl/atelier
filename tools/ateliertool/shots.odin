@@ -32,10 +32,11 @@ Shot_Act :: struct { command, arg, seen: string }
 // (a variable: the acts' slices are the program's data, not made again where the table is used)
 @(private = "file")
 SHOTS := [?]Shot{
-	{name = "main", step = "programs", seen = "Papier"},
+	// (atelier's own row first, not installed: the picture of a first start)
+	{name = "main", step = "programs", seen = "This installer, kept on your computer"},
 	{name = "welcome", step = "welcome", seen = "Froment Software"},
 	{name = "licences", step = "licences", seen = "MIT License"},
-	{name = "installing", step = "installing", seen = "Papier"},
+	{name = "installing", step = "installing", seen = "Copy"},
 	{name = "done", step = "done", seen = "Papier"},
 	// (the settings on their Appearance page: atelier's theme first among the cards)
 	{name = "settings", step = "programs", seen = "Papier", then = {{"key", "ctrl+,", "General"}, {"click", "Appearance", "Midnight"}}},

@@ -103,6 +103,42 @@ each program's `nix profile add github:sachahjkl/<repository>`, which the person
 runs where `/lib64` has an interpreter (nix-ld), and `gt:setup` makes the installed copy run by itself on NixOS. A file
 that does not run there reads as `Unknown`, as on any system.
 
+## atelier's own row
+
+atelier is the first row of the Programs step, as one program of the suite: its logo, its name, the line "This installer,
+kept on your computer: it updates the suite and adds programs later.", its version and its state, with the same badges
+and the same box rules (`state_ticked`, `programs.ticked`). The person installs atelier as they install the others, in
+the same list, after the same licences, with the same stepper. Nothing asks it at the start.
+
+Refused: the toolkit's setup dialog at the start of a copy that is not installed (`prefs_page.install_offer` with an
+offer, on Windows). It was an installer in front of the installer: a second window over the first step, with its own
+words and buttons, which asked a question that the list asks anyway. `--setup`, the settings' Installation page and
+Settings > Apps' Uninstall still open the toolkit's page or dialog, as in every program: those are about atelier alone.
+
+Its row differs from a carried program's in what runs, not in what it shows:
+
+- **Its state** is `gt:setup`'s facts (`setup.facts(setup_options())`, on a worker), not a `--status` of a file:
+  atelier is the running process. `prefs_page.Install` keeps only whether this is the installed copy, so the row reads
+  the facts itself; the read is a few `stat`s. The facts map onto the states:
+
+  | `setup.State` | State |
+  |---|---|
+  | `Not_Installed`, `Removal_Scheduled` | `Absent` |
+  | `This_Copy` | `Current` |
+  | `Other_Copy` | the installed version against `APP_VERSION`: `Older`, `Current` or `Newer` |
+  | `Repair` | `Repair` |
+  | `Nix_Package` | `Current`, without a box: the Nix configuration installs it |
+
+- **Its licences** are in atelier itself (`#load`): its `LICENSE` (MIT) and the toolkit's Lucide licence. The bundle
+  does not carry atelier.
+- **Its install** has the same three phases. Unpack is `Skipped`: the source is the running file, which holds nothing to
+  take out, and a stepper that marks it done would claim work that never ran. Install is "Copy":
+  `setup.install(setup_options(), desktop_shortcut = false)` copies the running file (the program and its bundle) into
+  its folder, writes its menu entry and its record. Check reads the facts again: the installed copy's version must be
+  `APP_VERSION`.
+- **Done** offers no Open for atelier: it is open. Its row says that it is in the applications menu.
+- The NixOS notice lists the carried programs only: atelier from Nix carries no bundle.
+
 ## The steps of the window
 
 One window, one step at a time. The steps are an explicit state machine (`Step` in `src/wizard.odin`):
@@ -114,10 +150,10 @@ Welcome -> Programs -> Licences -> Installing -> Done
 ```
 
 - **Welcome**: what atelier is, by Froment Software, and the number of programs it carries. One button: Choose the programs.
-- **Programs**: one row per program: its box, logo, name, tagline, version, state. "Select all" and "Select none".
-  Next is enabled when a box is ticked.
-- **Licences**: the licences of the chosen programs, one section each, its text in a scroll view. Next is "Accept and
-  install".
+- **Programs**: one row per program, atelier's own first: its box, logo, name, tagline, version, state. "Select all"
+  and "Select none". Next is enabled when a box is ticked.
+- **Licences**: the licences of the chosen programs, one section each (atelier's first), its text in a scroll view.
+  Next is "Accept and install".
 - **Installing**: one line per chosen program, all installing at once, each with its stepper (Unpack, Install, Check)
   and a bar for the whole. No Back: an install that started ends.
 - **Done**: what was installed, where it is, and a button per installed program that starts it. A failed install shows
@@ -144,9 +180,9 @@ A part that atelier made in its own way would drift from the programs it install
   checks it.
 - **The command palette** (Ctrl+K): `ui.Command_Palette` over atelier's actions (the steps, the boxes, the settings, the
   updates, the install of atelier, "Open <program>" once a program is installed) and the settings (`:`).
-- **Its own install** (`gt:setup` through `prefs_page.Install`): `--install`, `--uninstall`, `--status`, `--setup`, the
-  Installation page, and on Windows the offer at a start. The person opens atelier again from the menu to add a program
-  later. The install copies the running file, which is the program and its bundle: the installed copy carries its
+- **Its own install** (`gt:setup` through `prefs_page.Install`): `--install`, `--uninstall`, `--status`, `--setup` and
+  the Installation page. No offer at a start: atelier's own row of the Programs step installs it (above, "atelier's own
+  row"). The person opens atelier again from the menu to add a program later. The install copies the running file, which is the program and its bundle: the installed copy carries its
   programs. Its identity names no NixOS libraries: the toolkit would patch the file with patchelf, and the bundle after the
   ELF must stay byte for byte.
 - **Its updates** (`gt:update`): the release's file *is* the update. The signed manifest (`update-<platform>.json` and
@@ -168,9 +204,9 @@ again at an install (its first try failed) is checked against its SHA-256, so a 
 ## The command line
 
 - `atelier`: the window.
-- `atelier list`: the programs carried, their version and state, no window.
-- `atelier install <slug>… | all`: those programs installed without a window (what the CI's live check runs). The exit
-  code is 0 when each one installed.
+- `atelier list`: atelier, then the programs carried, their version and state, no window.
+- `atelier install <slug>… | all`: those programs installed without a window (what the CI's live check runs). The slug
+  `atelier` is atelier itself; `all` includes it. The exit code is 0 when each one installed.
 - `atelier --install`, `--uninstall`, `--status`, `--setup`: atelier's own install (`gt:setup`), as in every program.
 - `atelier prefs`, `atelier set <name> <value>`, `--pref name=value`: the preferences.
 - `atelier --bundle <file>`: read the programs from another file (a bundle built by `ateliertool bundle` without the

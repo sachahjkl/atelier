@@ -235,7 +235,9 @@ welcome_view :: proc(app: ^App, em: f32) {
 		ui.spacer(ui.px(em * 0.9))
 	}
 	ui.spacer(ui.px(em * 0.7))
-	for p, i in app.bundle.programs {
+	// (the programs carried: atelier is this window)
+	for p, i in app.programs {
+		if p.own { continue }
 		r := &app.rows[i]
 		line_next()
 		if ui.row(.Center, id = fmt.tprintf("###welcome_%s", p.slug)) {
@@ -271,7 +273,7 @@ programs_view :: proc(app: ^App, em: f32) {
 		if ui.button("###none", i18n.tr("Select none"), lucide.X, {icon_font = ui.lucide_icons(), quiet = true, disabled = !can}).clicked { select_all(app, false) }
 		ui.spacer(ui.px(em * MARGIN_EM))
 	}
-	for p, i in app.bundle.programs {
+	for p, i in app.programs {
 		ui.spacer(ui.px(em * 0.45))
 		program_row(app, p, &app.rows[i], em)
 	}
@@ -285,7 +287,9 @@ nixos_notice :: proc(app: ^App, em: f32) {
 		ui.spacer(ui.px(em * 0.6))
 		icon_paragraph(em, "###nixos_text", lucide.SNOWFLAKE, i18n.tr("This system is NixOS: Nix is the better install, it updates the programs with the system. Add each one with Nix, or install them from here:"), "warn")
 		ui.spacer(ui.px(em * 0.3))
-		for p, i in app.bundle.programs {
+		for p, i in app.programs {
+			// (atelier from Nix carries no programs: the line would install an empty installer)
+			if p.own { continue }
 			line := nix_line(p)
 			if line == "" { continue }
 			line_next()
@@ -333,7 +337,7 @@ program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
 			}
 			if ui.tags("weak") {
 				ui.next({width = ui.fill(), text_pad = 0})
-				ui.paragraph(fmt.tprintf("%s###tagline", p.tagline), selectable = false)
+				ui.paragraph(fmt.tprintf("%s###tagline", program_tagline(p)), selectable = false)
 			}
 			if r.status.state == .Unknown && r.status.reason != "" {
 				if ui.tags("bad") {
@@ -382,7 +386,7 @@ licences_view :: proc(app: ^App, em: f32) {
 		}
 		ui.spacer(ui.px(em * MARGIN_EM))
 	}
-	for p, i in app.bundle.programs {
+	for p, i in app.programs {
 		r := &app.rows[i]
 		if !r.ticked { continue }
 		ui.spacer(ui.px(em * 0.9))
@@ -452,7 +456,7 @@ installing_view :: proc(app: ^App, em: f32) {
 		icon_paragraph(em, "###note", lucide.INFO, i18n.tr("The programs install themselves side by side. If you close the window, those under way end their install first."), "weak")
 		ui.spacer(ui.px(em * 0.7))
 	}
-	for p, i in app.bundle.programs {
+	for p, i in app.programs {
 		r := &app.rows[i]
 		if r.result == .None { continue }
 		ui.spacer(ui.px(em * 0.45))
@@ -462,7 +466,7 @@ installing_view :: proc(app: ^App, em: f32) {
 			ui.spacer(ui.px(em * 0.7))
 			ui.next({width = ui.px(math.round(em * 12)), height = ui.px(math.round(em * 3.6)), text_pad = 0})
 			ui.label(fmt.tprintf("%s %s###name", p.name, p.version))
-			steps := install_steps(r^)
+			steps := install_steps(r^, p.own)
 			ui.next({width = ui.fill()})
 			ui.stepper("###phases", steps[:])
 			ui.spacer(ui.px(em * 0.9))
@@ -471,16 +475,20 @@ installing_view :: proc(app: ^App, em: f32) {
 }
 
 // The phases of a program's install as its stepper shows them: those before the phase under way done, that one turning
-// (or failed), those after it pending.
-@(private = "file")
-install_steps :: proc(r: Row) -> [len(Install_Phase)]ui.Stepper_Step {
+// (or failed), those after it pending. atelier's own (`own`) takes nothing out: its Unpack is skipped, not done, and
+// its Install is a copy of the running file.
+install_steps :: proc(r: Row, own := false) -> [len(Install_Phase)]ui.Stepper_Step {
 	steps: [len(Install_Phase)]ui.Stepper_Step
 	for phase in Install_Phase {
 		s := &steps[int(phase)]
 		switch phase {
 		case .Unpack:  s.label = i18n.tr("Unpack")
-		case .Install: s.label = i18n.tr("Install")
+		case .Install: s.label = own ? i18n.tr("Copy") : i18n.tr("Install")
 		case .Check:   s.label = i18n.tr("Check")
+		}
+		if own && phase == .Unpack && r.result != .None {
+			s.state = .Skipped
+			continue
 		}
 		switch r.result {
 		case .None, .Waiting: s.state = .Pending
@@ -538,6 +546,25 @@ result_mark :: proc(result: Result, em: f32) {
 	}
 }
 
+// atelier's own row of the Done step, in place of Open: where the person finds it again.
+@(private = "file")
+own_installed_mark :: proc(em: f32) {
+	ui.next({width = ui.children_sum(), height = ui.px(math.round(em * 2)), axis = .X, cross = .Center})
+	if ui.row(.Center, id = "###own_result") {
+		if ui.tags("good") {
+			ui.icon(lucide.CHECK, math.round(em * 1.4), ui.color("text"), ui.lucide_icons())
+			ui.spacer(ui.px(math.round(em * 0.3)))
+			ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0})
+			ui.label(fmt.tprintf("%s###words", i18n.tr("Installed: it is in the applications menu")))
+		}
+	}
+}
+
+// A program's line: atelier's own is translated (its words are the program's), a carried program's is its bundle's.
+program_tagline :: proc(p: Program) -> string {
+	return p.own ? i18n.tr(p.tagline) : p.tagline
+}
+
 @(private = "file")
 done_view :: proc(app: ^App, em: f32) {
 	installed, failed := 0, 0
@@ -553,7 +580,7 @@ done_view :: proc(app: ^App, em: f32) {
 		icon_paragraph(em, "###menu", lucide.INFO, i18n.tr("Each one is in the applications menu, and updates itself."), "weak")
 		ui.spacer(ui.px(em * 0.7))
 	}
-	for p, i in app.bundle.programs {
+	for p, i in app.programs {
 		r := &app.rows[i]
 		if r.result != .Installed && r.result != .Failed { continue }
 		ui.spacer(ui.px(em * 0.45))
@@ -582,7 +609,10 @@ done_view :: proc(app: ^App, em: f32) {
 					}
 					ui.spacer(ui.px(em * 0.5))
 				}
-				if r.result == .Installed {
+				if r.result == .Installed && p.own {
+					// (atelier is open: an Open would start a second one, which hands itself over to this window)
+					own_installed_mark(em)
+				} else if r.result == .Installed {
 					if ui.button("###open", i18n.tr("Open"), lucide.PLAY, {icon_font = ui.lucide_icons(), intent = .Success, disabled = r.status.program == ""}).clicked {
 						open_program(app, r.status.program)
 					}

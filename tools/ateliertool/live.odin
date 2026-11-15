@@ -2,9 +2,10 @@
 package ateliertool
 
 // live: the whole install, for real, in a home of its own (build/live/home: HOME and the XDG folders point there,
-// nothing of the person's is touched). atelier installs every program it carries from this system's bundle, then
-// `list` must say each one is installed at the carried version; a second `install all` must leave them as they are.
-// atelier then installs itself and takes itself away (--install, --status, --uninstall), as every program does.
+// nothing of the person's is touched). atelier installs itself and every program it carries from this system's bundle,
+// then `list` must say each one is installed at the carried version; a second `install all` must leave them as they
+// are. atelier then installs itself again and takes itself away (--install, --status, --uninstall), as every program
+// does. The window's way follows: no setup dialog at its start, its own row installed with the others.
 
 import "core:fmt"
 import "core:os"
@@ -55,6 +56,8 @@ run_live :: proc(args: []string) -> int {
 			failed = true
 		}
 	}
+	// (install all includes atelier itself: its line, under the heading, says it is installed)
+	if !live_own_installed(list, fmt.tprintf("%s/.local/share", home)) { failed = true }
 	// (again: each program is current, nothing to do, still a success)
 	if _, code := atelier(env, "install", "all"); code != 0 { fmt.eprintln("live: a second install all failed"); failed = true }
 	// atelier itself, as every program: installed with its menu entry, said installed, then taken away
@@ -66,6 +69,25 @@ run_live :: proc(args: []string) -> int {
 	if failed { return 1 }
 	fmt.println("live: every program installed, in its own home")
 	return live_window() ? 0 : 1
+}
+
+// Whether `list` says atelier is installed (its own line: two spaces, then its slug; the heading starts with it too) and
+// its menu entry is in `data` (XDG_DATA_HOME).
+@(private = "file")
+live_own_installed :: proc(list, data: string) -> bool {
+	line := ""
+	rest := list
+	for l in strings.split_lines_iterator(&rest) { if strings.has_prefix(l, "  atelier ") { line = l } }
+	ok := true
+	if !strings.has_suffix(strings.trim_space(line), "Installed") {
+		fmt.eprintfln("live: atelier is not installed: %q", line)
+		ok = false
+	}
+	if !os.exists(fmt.tprintf("%s/applications/atelier.desktop", data)) {
+		fmt.eprintln("live: atelier has no menu entry")
+		ok = false
+	}
+	return ok
 }
 
 LIVE_PORT :: 9373
@@ -118,7 +140,10 @@ live_window :: proc() -> bool {
 		return true
 	}
 	step(&c, "Choose the programs", "Choose the programs", SHOTS_WAIT) or_return
+	// (no installer of the installer: atelier's own row offers its install, no dialog over the first step)
+	if len(cdp.find(&c, "atelier Setup")) > 0 { fmt.eprintln("live: the setup dialog opened at the start"); return false }
 	step(&c, "Not installed", "", SHOTS_WAIT) or_return   // (the states read: the boxes ticked)
+	step(&c, "This installer, kept on your computer", "", SHOTS_WAIT) or_return   // (atelier's own row)
 	step(&c, "Next", "Next", SHOTS_WAIT) or_return
 	step(&c, "MIT License", "Accept and install", SHOTS_WAIT) or_return
 	step(&c, "programs are installed", "", LIVE_WAIT) or_return
@@ -127,6 +152,11 @@ live_window :: proc() -> bool {
 	list, code := toolbox.capture({PROGRAM, "--bundle", bundle, "list"}, {env = env[:]})
 	fmt.print(list)
 	if code != 0 || strings.contains(list, "Not installed") || strings.contains(list, "Repair") { fmt.eprintln("live: the window's install left a program out"); return false }
-	fmt.println("live: every program installed from the window, side by side")
+	// (atelier installed itself from its own row: its menu entry in the window's home, and --status says installed)
+	data := ""
+	for e in env { if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] } }
+	if !live_own_installed(list, data) { return false }
+	if _, scode := toolbox.capture({PROGRAM, "--bundle", bundle, "--status"}, {env = env[:]}); scode != 0 { fmt.eprintfln("live: atelier --status says %d after the window's install", scode); return false }
+	fmt.println("live: every program installed from the window, side by side, atelier with them")
 	return true
 }

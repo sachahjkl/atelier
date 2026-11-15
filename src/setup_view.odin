@@ -3,8 +3,8 @@ package atelier
 // atelier installs itself, as every program of the suite (gui_toolkit's setup, through prefs_page.Install): the program in
 // %LOCALAPPDATA%\Programs\atelier (~/.local/share/atelier on Linux), its menu entry, its record (Settings > Apps, whose
 // Uninstall runs `atelier --setup`), and on the PATH when the person ticks it. The person opens it again from the menu to
-// add a program later. A start of a copy that is not installed offers it on Windows, once per version unless the person
-// keeps this copy standalone. The settings' Installation page shows the install and acts on it.
+// add a program later. No start offers it in a dialog: atelier's own row of the Programs step installs it (own.odin).
+// The settings' Installation page shows the install and acts on it.
 //
 // The install copies the running file: the program and its bundle after it. The installed copy carries the programs.
 //

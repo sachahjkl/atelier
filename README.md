@@ -47,8 +47,9 @@ Each release of atelier carries the latest release of each program. Its notes sa
 
 atelier is one more program of the suite: its own title bar, its settings (Ctrl+,), its command palette (Ctrl+K).
 
-- **It installs itself** with the programs it carries (the settings' Installation page, or `atelier --install`): open
-  it again from the menu to add a program later. On Windows it offers it at its first start.
+- **It installs itself** with the programs it carries: it is the first line of the programs, ticked when it is not
+  installed (also the settings' Installation page, or `atelier --install`). Open it again from the menu to add a
+  program later.
 - **It updates itself** once installed: a new release brings the new versions of the programs too.
 - **Its settings** are the suite's common ones (theme, language, text, window, updates) and whether the programs start
   ticked. [docs/configuration.md](docs/configuration.md) lists them.

@@ -114,13 +114,17 @@ Can_Act_Key :: struct {
 @(private = "file")
 can_act_key :: proc(app: ^App) -> (k: Can_Act_Key) {
 	k = {made = true, step = app.step, known = app.known, chosen = chosen_count(app), ready = licences_ready(app), updater = app.updater != nil}
-	for r, i in app.rows { if program_openable(r) && i < 64 { k.results |= 1 << u64(i) } }
+	for _, i in app.rows { if program_openable(app, i) && i < 64 { k.results |= 1 << u64(i) } }
 	return
 }
 
-// Whether a row's program can be started from the palette: installed in this run, its path known.
+// Whether a row's program can be started from the palette: installed in this run, its path known. Never atelier's
+// own: it is open.
 @(private = "file")
-program_openable :: proc(r: Row) -> bool { return r.result == .Installed && r.status.program != "" }
+program_openable :: proc(app: ^App, row: int) -> bool {
+	r := app.rows[row]
+	return r.result == .Installed && r.status.program != "" && !(row < len(app.programs) && app.programs[row].own)
+}
 
 // The usage memory and the settings source, once the window, the updater and the install are made.
 palette_init :: proc(app: ^App) {
@@ -156,11 +160,10 @@ palette_give :: proc(app: ^App) {
 	if ps.language != i18n.version() || ps.language == 0 {
 		palette_table_free(ps)
 		for a in Action { append(&ps.table, ACTIONS[a]) }
-		if app.bundle != nil {
-			for p in app.bundle.programs {
-				// (the program's name is no word to translate: the label is made in the language in use)
-				append(&ps.table, ui.Command{label = fmt.aprintf(i18n.tr("Open %s"), p.name), group = i18n.later("Programs"), icon = lucide.PLAY, tags = OPEN_TAGS[:]})
-			}
+		// (one line per row, atelier's own too, so that a line's index is its row's: atelier's is never enabled)
+		for p in app.programs {
+			// (the program's name is no word to translate: the label is made in the language in use)
+			append(&ps.table, ui.Command{label = fmt.aprintf(i18n.tr("Open %s"), p.name), group = i18n.later("Programs"), icon = lucide.PLAY, tags = OPEN_TAGS[:]})
 		}
 		resize(&ps.disabled, len(ps.table))
 		ps.language = max(i18n.version(), 1)
@@ -168,7 +171,7 @@ palette_give :: proc(app: ^App) {
 	}
 	if key := can_act_key(app); fresh || key != ps.made_for {
 		for a in Action { ps.disabled[int(a)] = !action_enabled(app, a) }
-		for r, i in app.rows { ps.disabled[len(Action) + i] = !program_openable(r) }
+		for _, i in app.rows { ps.disabled[len(Action) + i] = !program_openable(app, i) }
 		ps.made_for = key
 		ps.version += 1
 	}
@@ -196,7 +199,7 @@ actions_build :: proc(app: ^App) {
 		if i, is := ui.palette_chosen_command(&app.palette, c); is && i >= 0 {
 			if i < len(Action) {
 				action_run(app, Action(i))
-			} else if row := i - len(Action); row < len(app.rows) && program_openable(app.rows[row]) {
+			} else if row := i - len(Action); row < len(app.rows) && program_openable(app, row) {
 				open_program(app, app.rows[row].status.program)
 			}
 		}

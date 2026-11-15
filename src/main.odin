@@ -22,8 +22,9 @@ APP_VERSION :: "0.2.0"
 USAGE :: `atelier: Froment Software's programs, chosen and installed at once
 
   atelier                         the window: choose the programs, read their licences, install them
-  atelier list                    the programs carried, their version and their state here; no window
-  atelier install <slug>... | all those programs installed, without a window (exit 0 when each one installed)
+  atelier list                    atelier, then the programs carried, their version and their state here; no window
+  atelier install <slug>... | all those programs installed, without a window (exit 0 when each one installed); the
+                                  slug atelier is atelier itself, and all includes it
   atelier --setup                 the window with atelier's own install shown (also in the settings: Installation)
   atelier --install               install this copy of atelier for you, with the programs it carries: the program, its
                                   menu entry, its uninstaller; no window
@@ -138,6 +139,13 @@ list_run :: proc(path: string) -> int {
 	if b == nil { return 1 }
 	defer bundle_destroy(b)
 	process.console_write(fmt.tprintf("atelier %s: %d programs for %s, made %s\n", APP_VERSION, len(b.programs), b.platform, b.made))
+	// (atelier's own line first, as its row in the window)
+	{
+		s := own_status()
+		process.console_write(fmt.tprintf("  %-16s %-10s %s\n", APP_NAME, APP_VERSION, state_words(s)))
+		status_destroy(&s)
+		free_all(context.temp_allocator)
+	}
 	for p in b.programs {
 		s := status_of(b, p)
 		process.console_write(fmt.tprintf("  %-16s %-10s %s\n", p.slug, p.version, state_words(s)))
@@ -156,22 +164,29 @@ status_of :: proc(b: ^Bundle, p: Program, allocator := context.allocator) -> Sta
 	return status_read(path, p.version, allocator)
 }
 
-// `atelier install <slug>... | all`: each program installs itself, one after the other. 0 when each one installed.
+// `atelier install <slug>... | all`: each program installs itself, one after the other. 0 when each one installed. The
+// slug atelier is atelier itself (gt:setup, in this process); `all` includes it, first, as in the window.
 install_run :: proc(path: string, slugs: []string) -> int {
 	b := bundle_for_command(path)
 	if b == nil { return 1 }
 	defer bundle_destroy(b)
-	chosen := make([dynamic]^Program, context.temp_allocator)
+	// (heap: own_install's caller frees the temporary memory between programs)
+	chosen := make([dynamic]^Program)
+	defer delete(chosen)
+	own := false
 	for s in slugs {
 		if s == "all" {
+			own = true
 			for &p in b.programs { append(&chosen, &p) }
 			continue
 		}
+		if s == APP_NAME { own = true; continue }
 		p := program_of(b, s)
 		if p == nil { process.console_error(fmt.tprintf("atelier: no program %s in this bundle\n", s)); return 2 }
 		append(&chosen, p)
 	}
 	failed := 0
+	if own && !own_install_run() { failed += 1 }
 	for p in chosen {
 		file, why := take_out(b, p^, context.temp_allocator)
 		ok: bool
@@ -197,6 +212,29 @@ install_run :: proc(path: string, slugs: []string) -> int {
 	}
 	scratch_end()
 	return failed == 0 ? 0 : 1
+}
+
+// atelier's own install from the command line: left as it is when this version or a newer one is installed (or Nix
+// installs it), as a carried program. True when it is in place.
+@(private = "file")
+own_install_run :: proc() -> bool {
+	defer free_all(context.temp_allocator)   // (gt:setup's strings)
+	s := own_status()
+	defer status_destroy(&s)
+	if s.state == .Current || s.state == .Newer {
+		process.console_write(fmt.tprintf("%s %s: %s, left as it is\n", APP_NAME, APP_VERSION, state_words(s)))
+		return true
+	}
+	ok, output := false, ""
+	if s.state == .Unknown {
+		output = strings.clone(s.reason)
+	} else {
+		ok, output = own_install()
+	}
+	defer delete(output)
+	process.console_write(fmt.tprintf("%s %s: %s\n", APP_NAME, APP_VERSION, ok ? "installed" : "failed"))
+	if output != "" { process.console_write(fmt.tprintf("    %s\n", indent(output))) }
+	return ok
 }
 
 // A program's output under its line: each of its lines indented.

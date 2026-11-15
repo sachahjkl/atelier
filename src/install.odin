@@ -30,6 +30,7 @@ Status :: struct {
 	installed: string,   // the installed copy's version ("": none, or not said)
 	program:   string,   // the installed program's path ("": none)
 	reason:    string,   // Unknown: why
+	by_nix:    bool,     // installed by the Nix configuration: no box (atelier's own row)
 }
 
 status_destroy :: proc(s: ^Status) {

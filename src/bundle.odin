@@ -35,6 +35,9 @@ Program :: struct {
 	sha256:     string,
 	logo:       string,   // its path in the zip ("": none)
 	licences:   []Licence,
+	// atelier itself, the first row of the list (own.odin): its file is the running program, not the bundle's. Never
+	// read from a manifest
+	own:        bool `json:"-"`,
 }
 
 // The manifest, and the zip it came from. Its strings live in its arena: they are only read once the bundle is open, by
@@ -95,9 +98,11 @@ bundle_parse :: proc(b: ^Bundle, data: []u8) -> bool {
 	m: Manifest
 	if json.unmarshal(data, &m, allocator = virtual.arena_allocator(&b.arena)) != nil { return false }
 	if m.schema != SCHEMA { return false }
-	for p in m.programs {
-		// (a file without its size and SHA-256 cannot be checked once taken out: such a manifest is refused whole)
-		if p.slug == "" || p.name == "" || p.version == "" || p.file == "" || p.size <= 0 || !slug_ok(p.slug) || !sha256_ok(p.sha256) { return false }
+	for &p in m.programs {
+		// (a file without its size and SHA-256 cannot be checked once taken out: such a manifest is refused whole. The
+		// slug atelier is atelier's own row, on the command line too)
+		if p.slug == "" || p.name == "" || p.version == "" || p.file == "" || p.size <= 0 || !slug_ok(p.slug) || !sha256_ok(p.sha256) || p.slug == APP_NAME { return false }
+		p.own = false   // (the key "-" of a manifest would set it)
 	}
 	b.schema, b.platform, b.made, b.programs = m.schema, m.platform, m.made, m.programs
 	return true

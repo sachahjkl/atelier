@@ -50,7 +50,8 @@ App :: struct {
 	main:         host.Host,
 	bundle:       ^Bundle,         // nil: this copy carries no programs (bundle_error says why)
 	bundle_error: Bundle_Error,
-	rows:         []Row,           // one per program of the bundle, in its order
+	programs:     []Program,       // atelier's own first (own_program), then the bundle's in its order; empty without a bundle
+	rows:         []Row,           // one per program of `programs`, in its order
 	step:         Step,
 	demo:         bool,            // made-up states, nothing runs (--demo)
 	known:        bool,            // the start's task answered: the logos and the licences are there, nixos is known
@@ -119,7 +120,10 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	// (a start-up read, before the window: the end of the file, then the manifest; no frame waits for it)
 	app.bundle, app.bundle_error = bundle_open(opts.bundle)
 	if app.bundle != nil {
-		app.rows = make([]Row, len(app.bundle.programs))
+		app.programs = make([]Program, len(app.bundle.programs) + 1)
+		app.programs[0] = own_program()
+		copy(app.programs[1:], app.bundle.programs)
+		app.rows = make([]Row, len(app.programs))
 	} else if app.bundle_error == .Bad_Manifest {
 		log.errorf("the list of programs in %s cannot be read", opts.bundle)
 	}
@@ -153,6 +157,8 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 		render.update_texture_rgba(&app.shared.r, app.logo, 0, 0, img.size.x, img.size.y, img.rgba)
 		app.logo_size = {f32(img.size.x), f32(img.size.y)}
 		app.install.logo = setup.Logo{app.logo, app.logo_size}
+		// (atelier's own row shows the same texture: app_run destroys it once)
+		if len(app.rows) > 0 { app.rows[0].logo, app.rows[0].logo_size = app.logo, app.logo_size }
 	}
 	if app.bundle != nil { start_ask(app) }
 	app.step = opts.step
@@ -160,8 +166,9 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	// (the demo reaches no network and reads no install: the pictures show the steps alone)
 	if !app.demo {
 		updates_start(app)
-		// (the install read on a task: setup_follow; offered on Windows, where nothing else installs atelier)
-		prefs_page.install_offer(&app.install, &h.state, offer = ODIN_OS == .Windows && !setup_asked)
+		// (the install read on a task: setup_follow. Never offered at the start: atelier's own row of the Programs step
+		// installs it, src/md/README.md "atelier's own row")
+		prefs_page.install_offer(&app.install, &h.state, offer = false)
 	}
 	palette_init(app)
 	// (a second start hands its launcher's token: this window comes to the front)
@@ -194,8 +201,8 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	ui.chores_stop(0)
 	ui.drain_posts(&h.state)
 	prefs_page.install_end(&app.install)   // (its thread waited for, before the window's State goes)
-	for &r in app.rows {
-		if r.logo_size != {} { render.destroy_texture(&app.shared.r, r.logo) }
+	for &r, i in app.rows {
+		if r.logo_size != {} && !app.programs[i].own { render.destroy_texture(&app.shared.r, r.logo) }
 		row_destroy(&r)
 	}
 	if app.logo_size != {} { render.destroy_texture(&app.shared.r, app.logo) }
@@ -223,6 +230,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 @(private = "file")
 app_free :: proc(app: ^App) {
 	delete(app.rows)
+	delete(app.programs)
 	bundle_destroy(app.bundle)
 	delete(app.prefs_path)
 	delete(app.launch_after)
@@ -340,7 +348,7 @@ select_all :: proc(app: ^App, on: bool) {
 
 // Whether the person can tick the row's box.
 row_choosable :: proc(app: ^App, r: Row) -> bool {
-	return app.known && state_choosable(r.status.state)
+	return app.known && state_choosable(r.status.state) && !r.status.by_nix
 }
 
 // Whether every licence of the programs chosen is read: "Accept and install" waits for it.
@@ -355,6 +363,7 @@ licences_ready :: proc(app: ^App) -> bool {
 @(private = "file")
 Start_Job :: struct {
 	bundle:   ^Bundle,
+	programs: []Program,    // the App's (read only, as the bundle)
 	logos:    []Pixels,     // one per program (rgba nil: none)
 	licences: [][]string,   // one per program: its licences' texts
 	nixos:    bool,
@@ -367,16 +376,21 @@ Pixels :: struct { rgba: []u8, w, h: int }
 @(private = "file")
 start_ask :: proc(app: ^App) {
 	j := new(Start_Job)
-	j.bundle, j.demo = app.bundle, app.demo
+	j.bundle, j.programs, j.demo = app.bundle, app.programs, app.demo
 	ui.task(&app.main.state, start_work, start_done, j, start_lost)
 }
 
 @(private = "file")
 start_work :: proc(data: rawptr) {
 	j := (^Start_Job)(data)
-	j.logos = make([]Pixels, len(j.bundle.programs))
-	j.licences = make([][]string, len(j.bundle.programs))
-	for p, i in j.bundle.programs {
+	j.logos = make([]Pixels, len(j.programs))
+	j.licences = make([][]string, len(j.programs))
+	for p, i in j.programs {
+		// (atelier's own: its logo is the window's, its licences are in the program)
+		if p.own {
+			j.licences[i] = own_licence_texts()
+			continue
+		}
 		if p.logo != "" {
 			if file, err := bundle_read(j.bundle, p.logo); !err {
 				rgba, w, h, ok := png.decode(file)
@@ -437,6 +451,7 @@ start_lost :: proc(data: rawptr) {
 @(private = "file")
 Status_Job :: struct {
 	bundle:  ^Bundle,
+	program: Program,
 	index:   int,
 	scratch: string,
 	status:  Status,
@@ -446,14 +461,19 @@ Status_Job :: struct {
 status_ask :: proc(app: ^App, index: int) {
 	if index >= len(app.rows) { return }
 	j := new(Status_Job)
-	j.bundle, j.index = app.bundle, index
+	j.bundle, j.program, j.index = app.bundle, app.programs[index], index
 	ui.task(&app.main.state, status_work, status_done, j, status_lost)
 }
 
 @(private = "file")
 status_work :: proc(data: rawptr) {
 	j := (^Status_Job)(data)
-	p := j.bundle.programs[j.index]
+	p := j.program
+	if p.own {
+		j.status = own_status()
+		free_all(context.temp_allocator)   // (gt:setup's facts)
+		return
+	}
 	why: string
 	j.scratch, why = take_out(j.bundle, p)
 	if why != "" {
@@ -498,6 +518,7 @@ status_lost :: proc(data: rawptr) {
 @(private = "file")
 Install_Job :: struct {
 	bundle:  ^Bundle,
+	program: Program,
 	index:   int,
 	scratch: string,          // the file taken out at the start ("": take it out now)
 	phase:   Install_Phase,   // the phase that ran last (where it failed when !ok)
@@ -510,9 +531,11 @@ Install_Job :: struct {
 install_start :: proc(app: ^App) {
 	for &r, i in app.rows {
 		if r.result != .Waiting { continue }
-		r.result, r.phase = .Installing, .Unpack
+		p := app.programs[i]
+		// (atelier's own has nothing to take out: its Unpack is skipped, install_steps)
+		r.result, r.phase = .Installing, p.own ? .Install : .Unpack
 		j := new(Install_Job)
-		j.bundle, j.index, j.scratch = app.bundle, i, strings.clone(r.scratch)
+		j.bundle, j.program, j.index, j.scratch = app.bundle, p, i, strings.clone(r.scratch)
 		ui.task(&app.main.state, install_work, install_done, j, install_lost)
 	}
 	install_finished(app)
@@ -540,7 +563,11 @@ phase_post :: proc(j: ^Install_Job, phase: Install_Phase) {
 @(private = "file")
 install_work :: proc(data: rawptr) {
 	j := (^Install_Job)(data)
-	p := j.bundle.programs[j.index]
+	p := j.program
+	if p.own {
+		own_install_work(j)
+		return
+	}
 	defer scratch_remove(p)
 	// Unpack: the file taken out now, or the one of the start checked again
 	why: string
@@ -557,6 +584,23 @@ install_work :: proc(data: rawptr) {
 	phase_post(j, .Check)
 	j.status = status_read(j.scratch, p.version)
 	if j.status.state != .Current {
+		j.ok = false
+		delete(j.output)
+		j.output = strings.clone(fmt.tprintf(i18n.tr("After its install, the program says: %s"), state_words(j.status)))
+	}
+}
+
+// atelier's own install: Copy (gt:setup copies the running file), then Check (the facts again: the installed copy is
+// this version). Its phase starts at Install: Unpack has nothing to do.
+@(private = "file")
+own_install_work :: proc(j: ^Install_Job) {
+	defer free_all(context.temp_allocator)   // (gt:setup's strings)
+	j.phase = .Install
+	j.ok, j.output = own_install()
+	if !j.ok { return }
+	phase_post(j, .Check)
+	j.status = own_status()
+	if j.status.state != .Current || j.status.installed != APP_VERSION {
 		j.ok = false
 		delete(j.output)
 		j.output = strings.clone(fmt.tprintf(i18n.tr("After its install, the program says: %s"), state_words(j.status)))

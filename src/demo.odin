@@ -8,16 +8,22 @@ import "core:fmt"
 import "core:strconv"
 import "core:strings"
 
-// The states the demo gives the programs, in the bundle's order, round again past the last.
+// The states the demo gives the programs, in the bundle's order, round again past the last. atelier's own row is
+// Absent: the pictures show a first start, from the downloaded file.
 @(private = "file")
 DEMO_STATES := [?]State{.Absent, .Older, .Current, .Absent, .Repair, .Newer}
 
 // Gives each row its made-up state, then shows `step` as a real run would have reached it.
 demo_step :: proc(app: ^App, step: Step) {
 	app.known = true
+	carried := 0
 	for &r, i in app.rows {
-		p := app.bundle.programs[i]
-		s := Status{state = DEMO_STATES[i % len(DEMO_STATES)]}
+		p := app.programs[i]
+		s := Status{state = .Absent}
+		if !p.own {
+			s.state = DEMO_STATES[carried % len(DEMO_STATES)]
+			carried += 1
+		}
 		#partial switch s.state {
 		case .Older:   s.installed = demo_version(p.version, -1)
 		case .Newer:   s.installed = demo_version(p.version, +1)
@@ -37,7 +43,7 @@ demo_step :: proc(app: ^App, step: Step) {
 		if r.result == .None { continue }
 		r.result = .Installed
 		delete(r.status.program)
-		r.status.program = demo_place(app.bundle.programs[i])
+		r.status.program = demo_place(app.programs[i])
 	}
 	app.step = .Done
 }
@@ -46,8 +52,13 @@ demo_step :: proc(app: ^App, step: Step) {
 // the first one done.
 demo_install :: proc(app: ^App) {
 	n := 0
-	for &r in app.rows {
+	for &r, i in app.rows {
 		if r.result != .Waiting { continue }
+		// (atelier's own copies itself: its stepper turns on Copy, its Unpack skipped)
+		if app.programs[i].own {
+			r.result, r.phase = .Installing, .Install
+			continue
+		}
 		switch n {
 		case 0:  r.result = .Installed
 		case 1:  r.result, r.phase = .Installing, .Check
