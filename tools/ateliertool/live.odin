@@ -150,7 +150,7 @@ live_window :: proc() -> bool {
 	for e in env { if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] } }
 	// A program that runs: papier installed, its manifest taken away (to repair: its box is ticked), its installed copy
 	// started. The window must ask, close it and install it.
-	open, ok_open := live_open_papier(&sway, env[:], bundle, data, home)
+	open, ok_open, windowless := live_open_papier(&sway, env[:], bundle, data, home)
 	if !ok_open { return false }
 	// A program whose install fails once: a file where its install folder goes. The window must show Retry; once the
 	// file is gone, the retry installs it.
@@ -196,9 +196,11 @@ live_window :: proc() -> bool {
 	step(&c, "Next", "Next", SHOTS_WAIT) or_return
 	step(&c, "MIT License", "Accept and install", SHOTS_WAIT) or_return
 	// (papier runs: the question names it, and its button closes it)
-	step(&c, "This program is open: Papier.", "Close it and install", LIVE_WAIT) or_return
-	if _, ended := toolbox.sway_wait(&sway, open, CLOSE_LIVE_WAIT); !ended { fmt.eprintln("live: the papier that ran was not closed"); return false }
-	fmt.println("live: the papier that ran is closed")
+	if !windowless {
+		step(&c, "This program is open: Papier.", "Close it and install", LIVE_WAIT) or_return
+		if _, ended := toolbox.sway_wait(&sway, open, CLOSE_LIVE_WAIT); !ended { fmt.eprintln("live: the papier that ran was not closed"); return false }
+		fmt.println("live: the papier that ran is closed")
+	}
 	step(&c, "1 failed", "", LIVE_WAIT) or_return
 	if os.remove(obstacle) != nil { fmt.eprintfln("live: %s cannot be removed", obstacle); return false }
 	step(&c, "Retry the failed ones", "Retry the failed ones", SHOTS_WAIT) or_return
@@ -211,7 +213,7 @@ live_window :: proc() -> bool {
 	// (atelier installed itself from its own row: its menu entry in the window's home, and --status says installed)
 	if !live_own_installed(list, data) { return false }
 	if _, scode := toolbox.capture({PROGRAM, "--bundle", bundle, "--status"}, {env = env[:]}); scode != 0 { fmt.eprintfln("live: atelier --status says %d after the window's install", scode); return false }
-	fmt.println("live: every program installed from the window, side by side, atelier with them; papier closed first, a failure retried")
+	fmt.printfln("live: every program installed from the window, side by side, atelier with them; %sa failure retried", windowless ? "" : "papier closed first, ")
 	return true
 }
 
@@ -221,7 +223,7 @@ CLOSE_LIVE_WAIT :: 40 * time.Second
 // papier installed in the window's home by the command line, its manifest taken away (to repair: the window ticks it),
 // then its installed copy started in the session, until its --status says it runs.
 @(private = "file")
-live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home: string) -> (p: os.Process, ok: bool) {
+live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home: string) -> (p: os.Process, ok: bool, windowless: bool) {
 	if out, code := toolbox.capture({PROGRAM, "--bundle", bundle, "install", "papier"}, {env = env}); code != 0 {
 		fmt.eprintfln("live: papier does not install:\n%s", out)
 		return
@@ -253,9 +255,16 @@ live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home:
 		out, _ := toolbox.capture({exe, "--status"}, {env = plain_env[:]})
 		if strings.contains(out, "running: true") && strings.contains(out, "to repair") {
 			fmt.println("live: papier runs, its install to repair")
-			return p, true
+			return p, true, false
 		}
 		time.sleep(SHOTS_POLL)
+	}
+	// (a runner whose Vulkan the released file cannot reach: papier gets no surface and ends. That is the machine's,
+	// not atelier's: the question of a program that runs is not tried here, the rest is)
+	log_text, _ := os.read_entire_file(fmt.tprintf("%s/window/papier.log", LIVE_DIR), context.temp_allocator)
+	if strings.contains(string(log_text), "wgpuInstanceCreateSurface") {
+		fmt.println("live: papier cannot open a window on this machine (no Vulkan surface for it): the question of a program that runs is not tried here")
+		return p, true, true
 	}
 	out, _ := toolbox.capture({exe, "--status"}, {env = plain_env[:]})
 	fmt.eprintfln("live: papier does not run, or is not to repair:\n%s", out)
