@@ -5,6 +5,21 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-15 15:44
+
+### Added
+- **Update the suite from atelier**: "Check for updates" on the programs' step looks for a newer atelier. When there is
+one, a banner names the programs it carries at a newer version, each such program shows the version available, and
+"Update atelier and the programs" updates atelier, then opens it again on the programs with those to update ticked.
+- **`atelier --quit`** closes the atelier that runs and waits for it to end.
+- **Retry a failed install**: a program whose install failed has a Retry button, and the last step has "Retry the failed
+ones". A retry runs the program's whole install again, from the look for a copy that runs.
+
+### Fixed
+- **A program that runs no longer makes its install fail**: before it installs, atelier looks for the programs chosen
+that are open, names them, and closes them once you agree ("Close them and install"). On the command line,
+`atelier install --close` closes them; without it, a program that runs is left as it is.
+
 ## [0.3.1] - 2026-11-15 14:35
 
 ### Changed
@@ -48,6 +63,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.4.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.4.0
 [0.3.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.3.1
 [0.3.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.3.0
 [0.2.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.2.0
