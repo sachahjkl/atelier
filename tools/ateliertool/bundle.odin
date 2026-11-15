@@ -98,8 +98,9 @@ make_bundle :: proc(platform, out, host: string) -> bool {
 		append(&programs, entry)
 		fmt.printfln("%-16s %s", p.slug, entry.version)
 	}
-	y, m, d := time.date(time.now())
-	manifest := Bundle_Manifest{schema = 1, platform = platform, made = fmt.tprintf("%04d-%02d-%02d", y, int(m), d), programs = programs[:]}
+	// (when, to the second, in UTC (RFC 3339): atelier says it in the reader's local time and words)
+	made, _ := time.time_to_rfc3339(time.now(), include_nanos = false, allocator = context.temp_allocator)
+	manifest := Bundle_Manifest{schema = 1, platform = platform, made = made, programs = programs[:]}
 	text, merr := json.marshal(manifest, {pretty = true}, context.temp_allocator)
 	if merr != nil { fmt.eprintln("bundle: the manifest cannot be written"); return false }
 

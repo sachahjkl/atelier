@@ -17,6 +17,15 @@ import process "gt:process"
 import setup "gt:setup"
 
 APP_NAME :: "atelier"
+// The name a person reads: the window, the menus, the texts. APP_NAME stays the technical name.
+APP_TITLE :: "Atelier"
+
+// Who makes it: its install's record and setup, the window's "By" line.
+VENDOR     :: "Froment Software"
+VENDOR_URL :: "https://froment.software"
+// atelier's folders (settings, state, logs, scratch): its vendor's folder, then its own (gui_toolkit's
+// src/md/features/folders.md). The runtime folder keeps APP_NAME: an old and a new copy still meet on its socket.
+APP_FOLDER :: "FromentSoftware" + platform.USER_DIR_SEPARATOR + APP_TITLE
 APP_VERSION :: "0.5.1"
 
 USAGE :: `atelier: Froment Software's programs, chosen and installed at once
@@ -303,11 +312,12 @@ app_run_kept :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool)
 		outcome, o.owner = instance.acquire({name = app_instance_name(), wait_ms = 2000}, transmute([]u8)message)
 		if outcome == .Forwarded { return 0 }
 	}
-	logger := tk_log.install({program = APP_NAME, echo = true})
+	// (the files keep the technical name; their folders are the vendor's)
+	logger := tk_log.install({program = APP_NAME, dir = tk_log.default_dir(APP_FOLDER, context.temp_allocator), echo = true})
 	code: int
 	{
 		context.logger = logger
-		crash.install({program = APP_NAME, version = APP_VERSION, log_tail = {tk_log.tail, logger.data}})
+		crash.install({program = APP_NAME, report_dir = crash.default_report_dir(APP_FOLDER, context.temp_allocator), version = APP_VERSION, log_tail = {tk_log.tail, logger.data}})
 		crash.begin_session()
 		last, crashed := crash.last_report(context.temp_allocator)
 		// (the frames free the temporary memory: the report's path is kept on the heap)

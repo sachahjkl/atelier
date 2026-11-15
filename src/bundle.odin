@@ -7,6 +7,7 @@ import "core:encoding/json"
 import "core:mem/virtual"
 import "core:os"
 import "core:strings"
+import "core:time"
 import archive "gt:archive"
 import i18n "gt:i18n"
 import update "gt:update"
@@ -57,7 +58,8 @@ Program :: struct {
 Bundle :: struct {
 	schema:   int,
 	platform: string,
-	made:     string,
+	made:     string,   // when the bundle was made (RFC 3339, UTC)
+	made_ms:  i64,      // the same, in milliseconds since 1970 (0: it does not read as a time)
 	programs: []Program,
 	index:    archive.Index,
 	arena:    virtual.Arena,
@@ -121,6 +123,7 @@ bundle_parse :: proc(b: ^Bundle, data: []u8) -> bool {
 		p.own = false   // (the key "-" of a manifest would set it)
 	}
 	b.schema, b.platform, b.made, b.programs = m.schema, m.platform, m.made, m.programs
+	if t, n := time.rfc3339_to_time_utc(m.made); n > 0 { b.made_ms = time.to_unix_nanoseconds(t) / 1_000_000 }
 	return true
 }
 

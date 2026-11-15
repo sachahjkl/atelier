@@ -62,9 +62,9 @@ suite_available :: proc(newer: []Newer_Program, slug: string) -> string {
 
 // The banner's words: atelier's new version, and the programs newer than this copy's (temp memory).
 suite_banner :: proc(version: string, newer: []Newer_Program) -> string {
-	if len(newer) == 0 { return fmt.tprintf(i18n.tr("A newer suite is available (atelier %s)."), version) }
+	if len(newer) == 0 { return fmt.tprintf(i18n.tr("A newer suite is available (Atelier %s)."), version) }
 	names := make([dynamic]string, context.temp_allocator)
 	for n in newer { append(&names, fmt.tprintf("%s %s", n.name, n.version)) }
 	list := strings.join(names[:], ", ", context.temp_allocator)
-	return fmt.tprintf(i18n.tr(len(newer), "A newer suite is available (atelier %s): %s is newer than what this copy carries.", "A newer suite is available (atelier %s): %s are newer than what this copy carries."), version, list)
+	return fmt.tprintf(i18n.tr(len(newer), "A newer suite is available (Atelier %s): %s is newer than what this copy carries.", "A newer suite is available (Atelier %s): %s are newer than what this copy carries."), version, list)
 }

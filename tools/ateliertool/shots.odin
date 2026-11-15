@@ -17,7 +17,8 @@ SHOTS_DIR  :: "build/shots"
 SHOTS_PORT :: 9372
 SHOTS_OUT  :: "docs/screenshots"
 SHOTS_SITE :: "site/img"
-SHOTS_WAIT :: 10 * time.Second
+// (a bound, not a delay: a loaded machine draws a software-rendered sway slowly, and a step's first frame can take seconds)
+SHOTS_WAIT :: 30 * time.Second
 SHOTS_POLL :: 50 * time.Millisecond
 // (atelier floats at its own size, as on a desktop: the pictures have its real proportions)
 SHOTS_SWAY :: "for_window [app_id=\"atelier\"] floating enable, resize set 900 640\n"
@@ -46,7 +47,7 @@ SHOTS := [?]Shot{
 	// (the same step once over, one install failed: its reason under its stepper, its output open, its Retry)
 	{name = "retry", step = "done", seen = "Exit code: 1", flags = {"--demo-case", "failure"}},
 	// (a newer suite on offer: its banner, and the notes of the rows it updates)
-	{name = "update", step = "programs", seen = "Update atelier and the programs", flags = {"--demo-case", "update"}},
+	{name = "update", step = "programs", seen = "Update Atelier and the programs", flags = {"--demo-case", "update"}},
 	// (the settings on their Appearance page: atelier's theme first among the cards)
 	{name = "settings", step = "programs", seen = "Papier", then = {{"key", "ctrl+,", "General"}, {"click", "Appearance", "Midnight"}}},
 	{name = "palette", step = "programs", seen = "Papier", then = {{"key", "ctrl+k", "Next step"}}},

@@ -10,7 +10,7 @@ VERSION_MARK :: "{{version}}"
 
 SITE_META :: tk_site.Meta{
 	url         = "https://atelier.froment.software/",
-	name        = "atelier",
+	name        = "Atelier",
 	repository  = REPOSITORY,
 	tagline     = "The working man's tools, by Froment Software",
 	changes     = "CHANGELOG.md",

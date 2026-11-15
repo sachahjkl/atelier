@@ -98,7 +98,8 @@ live_after_update :: proc() -> bool {
 	}
 	if !ok { fmt.eprintln("live: the window after the update does not answer"); return false }
 	defer cdp.close(&c)
-	for words in ([]string{"atelier is up to date: choose what to update.", "Choose the programs to install."}) {
+	// (the up-to-date line, then the Programs step's own button)
+	for words in ([]string{"choose what to update", "Select all"}) {
 		if !cdp.wait_for(&c, words, SHOTS_WAIT) {
 			shot := fmt.tprintf("%s/after/failed.png", LIVE_DIR)
 			cdp.shot(&c, shot)
@@ -191,7 +192,7 @@ live_window :: proc() -> bool {
 	}
 	step(&c, "Choose the programs", "Choose the programs", SHOTS_WAIT) or_return
 	// (no installer of the installer: atelier's own row offers its install, no dialog over the first step)
-	if len(cdp.find(&c, "atelier Setup")) > 0 { fmt.eprintln("live: the setup dialog opened at the start"); return false }
+	if len(cdp.find(&c, "Atelier Setup")) > 0 { fmt.eprintln("live: the setup dialog opened at the start"); return false }
 	step(&c, "Not installed", "", SHOTS_WAIT) or_return   // (the states read: the boxes ticked)
 	step(&c, "This installer, kept on your computer", "", SHOTS_WAIT) or_return   // (atelier's own row)
 	step(&c, "Next", "Next", SHOTS_WAIT) or_return

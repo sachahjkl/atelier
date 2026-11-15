@@ -7,6 +7,7 @@ package atelier
 
 import "core:fmt"
 import "core:slice"
+import "core:strings"
 import i18n "gt:i18n"
 import lucide "gt:lucide"
 import "gt:platform"
@@ -21,18 +22,24 @@ Action :: enum u8 {
 }
 
 ACTIONS := [Action]ui.Command{
-	.Next           = {label = i18n.later("Next step"), group = i18n.later("Steps"), keys = {{.Right, {.Alt}}}, icon = lucide.ARROW_RIGHT, tags = {"continue", "forward", "choose"}},
-	.Back           = {label = i18n.later("Previous step"), group = i18n.later("Steps"), keys = {{.Left, {.Alt}}}, icon = lucide.ARROW_LEFT, tags = {"return", "previous"}},
-	.Select_All     = {label = i18n.later("Select every program"), group = i18n.later("Programs"), keys = {{.A, {.Ctrl}}}, icon = lucide.LIST_CHECKS, tags = {"tick", "check", "all"}},
-	.Select_None    = {label = i18n.later("Select no program"), group = i18n.later("Programs"), icon = lucide.SQUARE, tags = {"untick", "clear", "none"}},
-	.Accept_Install = {label = i18n.later("Accept the licences and install"), group = i18n.later("Steps"), icon = lucide.DOWNLOAD, tags = {"install", "licence", "agree"}},
-	.Retry_Failed   = {label = i18n.later("Retry the failed installs"), group = i18n.later("Steps"), icon = lucide.ROTATE_CCW, tags = {"again", "failed", "install"}},
-	.Settings       = {label = i18n.later("Settings"), group = i18n.later("atelier"), keys = {{.Comma, {.Ctrl}}}, icon = lucide.SETTINGS, tags = {"preferences", "options", "configure"}, scope = .Window},
-	.Check_Updates  = {label = i18n.later("Check for updates"), group = i18n.later("atelier"), icon = lucide.REFRESH_CW, tags = {"upgrade", "version", "new"}},
-	.Update_Suite   = {label = i18n.later("Update atelier and the programs"), group = i18n.later("atelier"), icon = lucide.DOWNLOAD, tags = {"upgrade", "suite", "newer"}},
-	.Install_Atelier = {label = i18n.later("Install atelier…"), group = i18n.later("atelier"), icon = lucide.PACKAGE_PLUS, tags = {"setup", "uninstall", "menu", "path"}},
-	.Shortcuts      = {label = i18n.later("Keyboard shortcuts"), group = i18n.later("atelier"), keys = {{.F1, {}}}, icon = lucide.KEYBOARD, tags = {"help", "keys", "hotkeys"}, scope = .Window},
-	.Quit           = {label = i18n.later("Quit atelier"), group = i18n.later("atelier"), keys = {{.Q, {.Ctrl}}}, icon = lucide.POWER, tags = {"exit", "close", "stop"}, scope = .Window},
+	.Next           = {id = "next", label = i18n.later("Next step"), group = i18n.later("Steps"), keys = {{.Right, {.Alt}}}, icon = lucide.ARROW_RIGHT, tags = {"continue", "forward", "choose"}},
+	.Back           = {id = "back", label = i18n.later("Previous step"), group = i18n.later("Steps"), keys = {{.Left, {.Alt}}}, icon = lucide.ARROW_LEFT, tags = {"return", "previous"}},
+	.Select_All     = {id = "select_all", label = i18n.later("Select every program"), group = i18n.later("Programs"), keys = {{.A, {.Ctrl}}}, icon = lucide.LIST_CHECKS, tags = {"tick", "check", "all"}},
+	.Select_None    = {id = "select_none", label = i18n.later("Select no program"), group = i18n.later("Programs"), icon = lucide.SQUARE, tags = {"untick", "clear", "none"}},
+	.Accept_Install = {id = "accept_install", label = i18n.later("Accept the licences and install"), group = i18n.later("Steps"), icon = lucide.DOWNLOAD, tags = {"install", "licence", "agree"}},
+	.Retry_Failed   = {id = "retry_failed", label = i18n.later("Retry the failed installs"), group = i18n.later("Steps"), icon = lucide.ROTATE_CCW, tags = {"again", "failed", "install"}},
+	.Settings       = {id = "settings", label = i18n.later("Settings"), group = i18n.later("Atelier"), keys = {{.Comma, {.Ctrl}}}, icon = lucide.SETTINGS, tags = {"preferences", "options", "configure"}, scope = .Window},
+	.Check_Updates  = {id = "check_updates", label = i18n.later("Check for updates"), group = i18n.later("Atelier"), icon = lucide.REFRESH_CW, tags = {"upgrade", "version", "new"}},
+	.Update_Suite   = {id = "update_suite", label = i18n.later("Update Atelier and the programs"), group = i18n.later("Atelier"), icon = lucide.DOWNLOAD, tags = {"upgrade", "suite", "newer"}},
+	.Install_Atelier = {id = "install_atelier", label = i18n.later("Install Atelier…"), group = i18n.later("Atelier"), icon = lucide.PACKAGE_PLUS, tags = {"setup", "uninstall", "menu", "path"}},
+	.Shortcuts      = {id = "shortcuts", label = i18n.later("Keyboard shortcuts"), group = i18n.later("Atelier"), keys = {{.F1, {}}}, icon = lucide.KEYBOARD, tags = {"help", "keys", "hotkeys"}, scope = .Window},
+	.Quit           = {id = "quit", label = i18n.later("Quit Atelier"), group = i18n.later("Atelier"), keys = {{.Q, {.Ctrl}}}, icon = lucide.POWER, tags = {"exit", "close", "stop"}, scope = .Window},
+}
+
+// The id of a program's "Open" line: its slug, which the bundle keeps from one version to the next (lower case: an id
+// has no capital).
+open_command_id :: proc(slug: string, allocator := context.allocator) -> string {
+	return strings.concatenate({"open.", strings.to_lower(slug, context.temp_allocator)}, allocator)
 }
 
 // Whether `a` can act now: what the step's buttons offer.
@@ -70,7 +77,7 @@ action_run :: proc(app: ^App, a: Action) {
 	case .Update_Suite:          suite_update(app)
 	case .Install_Atelier:       prefs_page.install_open(&app.install)
 	// (the sheet adds the toolkit's palette command itself)
-	case .Shortcuts:             ui.shortcuts_sheet_open(&app.sheet, slice.enumerated_array(&ACTIONS), i18n.tr("atelier's keys"))
+	case .Shortcuts:             ui.shortcuts_sheet_open(&app.sheet, slice.enumerated_array(&ACTIONS), i18n.tr("Atelier's keys"))
 	case .Quit:                  platform.request_close(app.main.win)
 	}
 }
@@ -91,6 +98,7 @@ actions_keys :: proc(app: ^App) {
 		if ACTIONS[a].scope == .Window { continue }
 		if ui.command_pressed(ACTIONS[a], !action_enabled(app, a)) { action_run(app, a); return }
 	}
+	open_keys(app)
 }
 
 // What atelier gives the palette: the actions, then one "Open <program>" per program of the bundle (shown once it is
@@ -100,7 +108,8 @@ actions_keys :: proc(app: ^App) {
 Palette_State :: struct {
 	table:    [dynamic]ui.Command,   // the actions, then the programs' (their labels owned)
 	disabled: [dynamic]bool,
-	language: u32,                   // i18n.version() of the table (0: not made)
+	made:     bool,                  // the table is made (palette_table_make)
+	language: u32,                   // i18n.version() of the table
 	version:  u64,
 	made_for: Can_Act_Key,
 	settings: prefs_page.Palette_Settings,
@@ -164,27 +173,52 @@ OPEN_TAGS := [?]string{"start", "run", "launch"}
 
 @(private = "file")
 palette_table_free :: proc(ps: ^Palette_State) {
-	for c, i in ps.table { if i >= len(Action) { delete(c.label) } }
+	for c, i in ps.table {
+		if i >= len(Action) {
+			delete(c.label)
+			delete(c.id)
+		}
+	}
 	clear(&ps.table)
+}
+
+// The table, made again when the language changes. True when it was made now.
+@(private = "file")
+palette_table_make :: proc(app: ^App) -> (fresh: bool) {
+	ps := &app.palette_state
+	// (the keys of its "Open" lines are read at each frame: the table is made once per language, never at a frame)
+	if ps.made && ps.language == i18n.version() { return false }
+	palette_table_free(ps)
+	for a in Action { append(&ps.table, ACTIONS[a]) }
+	// (one line per row, atelier's own too, so that a line's index is its row's: atelier's is never enabled)
+	for p in app.programs {
+		// (the program's name is no word to translate: the label is made in the language in use)
+		append(&ps.table, ui.Command{id = open_command_id(p.slug), label = fmt.aprintf(i18n.tr("Open %s"), p.name), group = i18n.later("Programs"), icon = lucide.PLAY, tags = OPEN_TAGS[:]})
+	}
+	// (a table made at run time: its ids known again, before a key of it is read)
+	ui.keymap_known(&app.keymap, ps.table[:])
+	resize(&ps.disabled, len(ps.table))
+	ps.language, ps.made = i18n.version(), true
+	return true
+}
+
+// The keys a person gave a program's "Open" line (it has none of its own): read with the steps' actions.
+@(private = "file")
+open_keys :: proc(app: ^App) {
+	palette_table_make(app)
+	ps := &app.palette_state
+	for i in len(Action) ..< len(ps.table) {
+		row := i - len(Action)
+		if row >= len(app.rows) { break }
+		if ui.command_pressed(ps.table[i], !program_openable(app, row)) { open_program(app, app.rows[row].status.program); return }
+	}
 }
 
 // The table and what can act, given to the commands source.
 @(private = "file")
 palette_give :: proc(app: ^App) {
 	ps := &app.palette_state
-	fresh := false
-	if ps.language != i18n.version() || ps.language == 0 {
-		palette_table_free(ps)
-		for a in Action { append(&ps.table, ACTIONS[a]) }
-		// (one line per row, atelier's own too, so that a line's index is its row's: atelier's is never enabled)
-		for p in app.programs {
-			// (the program's name is no word to translate: the label is made in the language in use)
-			append(&ps.table, ui.Command{label = fmt.aprintf(i18n.tr("Open %s"), p.name), group = i18n.later("Programs"), icon = lucide.PLAY, tags = OPEN_TAGS[:]})
-		}
-		resize(&ps.disabled, len(ps.table))
-		ps.language = max(i18n.version(), 1)
-		fresh = true
-	}
+	fresh := palette_table_make(app)
 	if key := can_act_key(app); fresh || key != ps.made_for {
 		for a in Action { ps.disabled[int(a)] = !action_enabled(app, a) }
 		for _, i in app.rows { ps.disabled[len(Action) + i] = !program_openable(app, i) }

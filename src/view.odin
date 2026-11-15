@@ -17,6 +17,7 @@ import i18n "gt:i18n"
 import lucide "gt:lucide"
 import "gt:platform"
 import "gt:render"
+import timefmt "gt:timefmt"
 import "gt:ui"
 
 ////////////////////////////////
@@ -101,7 +102,7 @@ view_keys :: proc(app: ^App) {
 build_page :: proc(app: ^App, em: f32) {
 	title_bar(app, em)
 	ui.hline(ui.fill())
-	crash_bar.bar(&app.crash_bar, {name = "atelier", version = APP_VERSION, repository = "sachahjkl/atelier"})
+	crash_bar.bar(&app.crash_bar, {name = APP_TITLE, version = APP_VERSION, repository = "sachahjkl/atelier"})
 	if app.settings_open {
 		settings_build(app)
 		return
@@ -147,7 +148,7 @@ title_bar :: proc(app: ^App, em: f32) {
 			space(ICON_GAP)
 		}
 		ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, font_size = math.round(em * 1.1)})
-		ui.label("atelier###name")
+		ui.label(APP_TITLE + "###name")
 		ui.spacer(ui.fill())
 		if app.settings_open {
 			if ui.tags("weak") {
@@ -248,8 +249,30 @@ icon_paragraph :: proc(em: f32, id, glyph, text, tone: string, page := false) {
 @(private = "file")
 no_bundle_view :: proc(app: ^App, em: f32) {
 	if card("###nobundle") {
-		text := app.bundle_error == .Bad_Manifest ? i18n.tr("The list of programs this copy of atelier carries cannot be read: download atelier again.") : i18n.tr("This copy of atelier carries no programs: build it with ateliertool package.")
+		text := app.bundle_error == .Bad_Manifest ? i18n.tr("The list of programs this copy of Atelier carries cannot be read: download Atelier again.") : i18n.tr("This copy of Atelier carries no programs: build it with ateliertool package.")
 		icon_paragraph(em, "###nobundle_text", lucide.ALERT_TRIANGLE, text, "bad")
+	}
+}
+
+// "By <mark> Froment Software", as the setup's dialog and the foot of the site say it: the vendor's name opens its site.
+// (the setup's own line is the toolkit's and private: this one keeps its sizes)
+@(private = "file")
+by_line :: proc(app: ^App, em: f32) {
+	line := math.round(em * 1.35)
+	size := math.round(em * 0.9)
+	ui.next({width = ui.fill(), height = ui.px(line), axis = .X, cross = .Center})
+	if ui.row(id = "###by") {
+		if ui.tags("weak") {
+			ui.next({width = ui.text_size(), height = ui.px(line), font_size = size, text_pad = 0})
+			ui.label(fmt.tprintf("%s###by_word", i18n.tr("By")))
+		}
+		space(SPACE_1)
+		if mark, has := app.install.vendor_mark.?; has {
+			image(mark.texture, mark.size, math.round(em * 0.95), "###by_mark")
+			space(SPACE_1)
+		}
+		ui.next({font_size = size})
+		if ui.button("###by_name", VENDOR, o = {face = .Link, height = line, tip = VENDOR_URL}).clicked { ui.open(VENDOR_URL, .Url) }
 	}
 }
 
@@ -267,22 +290,29 @@ welcome_view :: proc(app: ^App, em: f32) {
 		ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
 		if ui.column(id = "###words") {
 			ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.9)), font_size = math.round(em * 1.45), text_pad = 0})
-			ui.label("atelier###name")
+			ui.label(APP_TITLE + "###name")
 			if ui.tags("weak") {
 				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), font_size = math.round(em * 0.9), text_pad = 0})
-				ui.label(fmt.tprintf("%s###line", i18n.tr("The working man's tools · by Froment Software")))
+				ui.label(fmt.tprintf("%s###line", i18n.tr("The working man's tools")))
 			}
+			by_line(app, em)
 		}
 		page_end()
 	}
-	space(ITEM_GAP)
-	icon_paragraph(em, "###what", lucide.TOOLBOX, i18n.tr("atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed."), "", page = true)
-	space(LINE_GAP)
-	icon_paragraph(em, "###after", lucide.REFRESH_CW, i18n.tr("Each program updates itself once it is installed."), "weak", page = true)
+	// (the head says what atelier is and who makes it; the steps show the rest: no paragraph says it again)
 	space(GROUP_GAP)
 	// (the programs carried, under their count: atelier is this window)
 	n := len(app.bundle.programs)
-	icon_paragraph(em, "###count", lucide.PACKAGE, fmt.tprintf(i18n.tr(n, "This copy carries %d program, made on %s.", "This copy carries %d programs, made on %s."), n, app.bundle.made), "weak", page = true)
+	// (when it was made, as a person says it, in local time: "today 18:42", "Nov 10, 18:42". The clock's offset is the
+	// toolkit's watch, read without a system call; "now" is atelier's start)
+	count: string
+	if app.bundle.made_ms > 0 {
+		made := timefmt.moment(f64(app.bundle.made_ms), f64(app.started_ms), timefmt.local_offset_minutes(), {})
+		count = fmt.tprintf(i18n.tr(n, "This copy carries %d program, made %s.", "This copy carries %d programs, made %s."), n, made)
+	} else {
+		count = fmt.tprintf(i18n.tr(n, "This copy carries %d program.", "This copy carries %d programs."), n)
+	}
+	icon_paragraph(em, "###count", lucide.PACKAGE, count, "weak", page = true)
 	space(LINE_GAP)
 	if list("###welcome_list") {
 		first := true
@@ -310,7 +340,7 @@ programs_view :: proc(app: ^App, em: f32) {
 	if app.nixos { nixos_notice(app, em) }
 	if app.after_update {
 		if card("###after_update") {
-			icon_paragraph(em, "###after_update_text", lucide.CHECK_CIRCLE, i18n.tr("atelier is up to date: choose what to update."), "good")
+			icon_paragraph(em, "###after_update_text", lucide.CHECK_CIRCLE, i18n.tr("Atelier is up to date: choose what to update."), "good")
 		}
 		space(GROUP_GAP)
 	}
@@ -319,12 +349,8 @@ programs_view :: proc(app: ^App, em: f32) {
 	line_next()
 	if ui.row(.Center, id = "###select") {
 		space(PAGE_MARGIN)
-		if ui.tags("weak") {
-			small_icon(em, lucide.LIST_CHECKS, ui.color("text"))
-			space(ICON_GAP)
-			ui.next({width = ui.fill(), height = ui.px(math.round(em * 2)), text_pad = 0})
-			ui.label(fmt.tprintf("%s###choose", i18n.tr("Choose the programs to install.")))
-		}
+		// (no words before the buttons: the step and the boxes say what to do)
+		ui.spacer(ui.fill())
 		// (the updater checks on its own thread: the button turns meanwhile)
 		checking := app.update_phase == .Checking
 		if ui.button("###check", i18n.tr("Check for updates"), lucide.REFRESH_CW, {icon_font = ui.lucide_icons(), quiet = true, disabled = !action_enabled(app, .Check_Updates) && !checking, busy = checking}).clicked { update_check_asked(app) }
@@ -359,7 +385,7 @@ suite_banner_view :: proc(app: ^App, em: f32) {
 			// (the demo has no updater: its button is shown as it would be, and does nothing)
 			downloading := app.update_phase == .Downloading
 			disabled := !app.demo && !suite_update_possible(app) && !downloading
-			if button("###suite_update", i18n.tr("Update atelier and the programs"), lucide.DOWNLOAD, .Primary, disabled, busy = downloading) { suite_update(app) }
+			if button("###suite_update", i18n.tr("Update Atelier and the programs"), lucide.DOWNLOAD, .Primary, disabled, busy = downloading) { suite_update(app) }
 		}
 	}
 	space(GROUP_GAP)
@@ -468,13 +494,13 @@ state_badge :: proc(app: ^App, r: Row, em: f32) {
 // a card around them would frame a frame.
 @(private = "file")
 licences_view :: proc(app: ^App, em: f32) {
-	if ui.tags("weak") {
-		icon_paragraph(em, "###licences_intro", lucide.SCALE, i18n.tr("Read the licence of each program chosen, and of what it includes. Accept them to install the programs."), "", page = true)
-	}
+	// (no sentence above them: the step and the "Accept and install" button say what to do)
+	first := true
 	for p, i in app.programs {
 		r := &app.rows[i]
 		if !r.ticked { continue }
-		space(GROUP_GAP)
+		if !first { space(GROUP_GAP) }
+		first = false
 		section_head(em, fmt.tprintf("###licences_%s", p.slug), fmt.tprintf("%s %s", p.name, p.version))
 		space(LINE_GAP)
 		if r.licences == nil {
@@ -565,7 +591,8 @@ install_panel :: proc(app: ^App, em: f32) {
 	case .Running:
 		done, of := installed_count(app)
 		text, glyph, tone = fmt.tprintf(i18n.tr("Installing: %d of %d done"), done, of), lucide.DOWNLOAD, ""
-		note = i18n.tr("The programs install themselves side by side. If you close the window, those under way end their install first.")
+		// (that they install side by side, the steppers show: the note says only what a close does)
+		note = i18n.tr("If you close the window, the installs under way finish first.")
 	case .Retrying:
 		text, glyph, tone = fmt.tprintf(i18n.tr("%d installed, %d installing again."), installed, busy), lucide.ROTATE_CCW, ""
 		note = i18n.tr("Each one is in the applications menu, and updates itself.")
@@ -653,24 +680,13 @@ install_row :: proc(app: ^App, p: Program, index: int, r: ^Row, em: f32) {
 	}
 }
 
-// Under an installed program's stepper: atelier's own words (it is open, so no Open), then where it is.
+// Under an installed program's stepper: where it is. (that it is installed, the stepper's checks say; that it is in the
+// menu, the summary says once for all)
 @(private = "file")
 installed_lines :: proc(p: Program, r: Row, indent, em: f32) {
-	if !p.own && r.status.program == "" { return }
+	if r.status.program == "" { return }
 	space(SPACE_1)
-	if p.own {
-		line_next()
-		if ui.row(.Center, id = "###own_result") {
-			ui.spacer(ui.px(indent))
-			if ui.tags("good") {
-				small_icon(em, lucide.CHECK, ui.color("text"))
-				space(ICON_GAP)
-				ui.next({width = ui.fill(), height = ui.px(math.round(em * ICON_LINE_EM)), text_pad = 0})
-				ui.label(fmt.tprintf("%s###words", i18n.tr("Installed: it is in the applications menu")))
-			}
-		}
-	}
-	if r.status.program != "" {
+	{
 		line_next()
 		if ui.row(.Center, id = "###where_row") {
 			ui.spacer(ui.px(indent))
@@ -771,7 +787,8 @@ install_steps :: proc(r: Row, own := false) -> [len(Install_Phase)]ui.Stepper_St
 			switch {
 			case phase < r.phase:  s.state = .Done
 			case phase > r.phase:  s.state = r.result == .Failed ? .Skipped : .Pending
-			case r.result == .Failed: s.state, s.detail = .Failed, i18n.tr("Failed")
+			// (no word under the node: its cross says it failed, the reason under the row says why)
+			case r.result == .Failed: s.state = .Failed
 			case:                  s.state = .Active
 			}
 		}

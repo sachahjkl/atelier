@@ -45,7 +45,7 @@ a_failure_says_why_in_one_line :: proc(t: ^testing.T) {
 	// (nothing said: the exit code; a Windows NTSTATUS in hex, with its meaning)
 	testing.expect_value(t, failure_reason("", .Install, 3), "The install did not finish: the program gave no reason. Its exit code: 3")
 	testing.expect_value(t, failure_reason("  \n", .Install, int(u32(0xC0000135))), "The install did not finish: the program gave no reason. Its exit code: 0xC0000135 (a DLL that it needs is missing)")
-	testing.expect_value(t, failure_reason("", .Unpack, nil), "The Unpack phase failed: atelier has no reason for it.")
+	testing.expect_value(t, failure_reason("", .Unpack, nil), "The Unpack phase failed: Atelier has no reason for it.")
 	// (read back as a signed 32-bit code, the same status)
 	testing.expect_value(t, exit_code_words(int(i32(-1073741819))), "0xC0000005 (it crashed)")
 	testing.expect_value(t, exit_code_words(int(u32(0xC0000142))), "0xC0000142")

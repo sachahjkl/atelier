@@ -32,9 +32,9 @@ ICON_PNGS := [?]desktop.Icon{
 // after the program must stay as it was written.
 atelier_identity :: proc() -> desktop.Identity {
 	return desktop.Identity{
-		name = "atelier", key = "Atelier", slug = APP_NAME,
+		name = APP_TITLE, key = "Atelier", slug = APP_NAME,
 		description = "The working man's tools: Froment Software's desktop programs, installed at once.",
-		vendor = "Froment Software",
+		vendor = VENDOR,
 		entry_marker = "X-Atelier-Integration", registry_mark = "AtelierIntegration", vendor_key = "FromentSoftware",
 		manifest_name = "atelier_install.txt",
 		generic_name = "Software Installer", categories = "System;PackageManager;Utility;", keywords = "install;programs;suite;froment;",
@@ -47,6 +47,7 @@ atelier_identity :: proc() -> desktop.Identity {
 setup_options :: proc() -> setup.Setup_Options {
 	return setup.Setup_Options{
 		identity = atelier_identity(), version = APP_VERSION, install_folder = APP_NAME, icons = ICON_PNGS[:],
+		vendor_url = VENDOR_URL,
 		choices = SETUP_CHOICES[:], running = app_running, quit = app_quit_ask,
 		prepare = proc(o: ^desktop.Integration_Options, choices: []bool, user: rawptr) {
 			if len(choices) == len(SETUP_CHOICES) { o.add_to_path = choices[0] }
@@ -59,7 +60,7 @@ setup_options :: proc() -> setup.Setup_Options {
 // The boxes of the dialog, in the order prepare reads them (their labels in English: the dialog translates them).
 @(private = "file")
 SETUP_CHOICES := [?]setup.Choice{
-	{label = i18n.later("atelier in the terminal (on the PATH)"), on = false, parts = {.Path}},
+	{label = i18n.later("Atelier in the terminal (on the PATH)"), on = false, parts = {.Path}},
 }
 
 // Once the start's reading of the install came (prefs_page.install_offer): whether this is the installed copy, which

@@ -34,9 +34,9 @@ a_newer_suite_names_what_is_newer :: proc(t: ^testing.T) {
 @(test)
 the_banner_names_the_newer_programs :: proc(t: ^testing.T) {
 	none := suite_banner("0.4.0", nil)
-	testing.expect_value(t, none, "A newer suite is available (atelier 0.4.0).")
+	testing.expect_value(t, none, "A newer suite is available (Atelier 0.4.0).")
 	one := []Newer_Program{{"papier", "Papier", "0.25.0"}}
-	testing.expect_value(t, suite_banner("0.4.0", one), "A newer suite is available (atelier 0.4.0): Papier 0.25.0 is newer than what this copy carries.")
+	testing.expect_value(t, suite_banner("0.4.0", one), "A newer suite is available (Atelier 0.4.0): Papier 0.25.0 is newer than what this copy carries.")
 	two := []Newer_Program{{"papier", "Papier", "0.25.0"}, {"cliche", "cliche", "0.9.0"}}
 	banner := suite_banner("0.4.0", two)
 	testing.expectf(t, strings.contains(banner, ": Papier 0.25.0, cliche 0.9.0 are newer"), "%s", banner)

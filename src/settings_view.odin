@@ -36,6 +36,7 @@ SETTINGS_PAGES := [?]prefs_page.Page_Info{
 	{category = "scrolling",  title = i18n.later("Scrolling"),        icon = lucide.MOUSE},
 	{category = "input",      title = i18n.later("Input"),            icon = lucide.KEYBOARD},
 	{category = "timing",     title = i18n.later("Delays and menus"), icon = lucide.TIMER},
+	{category = "keys",       title = i18n.later("Keys"),             icon = lucide.KEYBOARD},
 	{category = "update",     title = i18n.later("Updates"),          icon = lucide.DOWNLOAD},
 	{category = "rendering",  title = i18n.later("Rendering"),        icon = lucide.MONITOR},
 }
@@ -45,7 +46,7 @@ SETTINGS_PAGES := [?]prefs_page.Page_Info{
 settings_problem :: proc(user: rawptr, name: string) -> string {
 	app := (^App)(user)
 	if name == prefs_page.SYSTEM_TITLE_PREF && app.settings.system_title && !platform.system_title_available(app.main.win) {
-		return i18n.tr("This desktop draws no title bar for atelier's window (GNOME): atelier keeps its own.")
+		return i18n.tr("This desktop draws no title bar for Atelier's window (GNOME): Atelier keeps its own.")
 	}
 	return ""
 }
@@ -64,7 +65,7 @@ settings_options :: proc(app: ^App) -> prefs_page.Page_Options {
 		updater = app.updater, restart = proc(user: rawptr) { app_restart((^App)(user)) },
 		pages = SETTINGS_PAGES[:], icon_font = ui.lucide_icons(), search_icon = lucide.SEARCH, reset_icon = lucide.ROTATE_CCW,
 		file = app.prefs_path,
-		version = "atelier " + APP_VERSION,
+		version = APP_TITLE + " " + APP_VERSION,
 		themes = app.themes_file.all[:], themes_light = app.theme_shown.light, themes_file = &app.themes_file,
 		install = &app.install, diagnostics = &app.main,
 	}

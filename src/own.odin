@@ -24,7 +24,7 @@ OWN_LICENCES := [?]Licence{{title = "MIT License"}, {title = "Lucide (ISC Licens
 // atelier as a program of the list. Its tagline is English: the view translates it, so that a change of language shows.
 own_program :: proc() -> Program {
 	return Program{
-		slug = APP_NAME, name = "atelier", version = APP_VERSION, repository = "https://github.com/sachahjkl/atelier",
+		slug = APP_NAME, name = APP_TITLE, version = APP_VERSION, repository = "https://github.com/sachahjkl/atelier",
 		tagline = i18n.later("This installer, kept on your computer: it updates the suite and adds programs later."),
 		licences = OWN_LICENCES[:], own = true,
 	}
@@ -41,7 +41,7 @@ own_licence_texts :: proc(allocator := context.allocator) -> []string {
 // temporary memory, which the caller frees.
 own_status :: proc(allocator := context.allocator) -> Status {
 	if !desktop.supported() {
-		return {state = .Unknown, reason = strings.clone(i18n.tr("atelier cannot install itself on this system"), allocator)}
+		return {state = .Unknown, reason = strings.clone(i18n.tr("Atelier cannot install itself on this system"), allocator)}
 	}
 	return own_status_of(setup.facts(setup_options()), allocator)
 }

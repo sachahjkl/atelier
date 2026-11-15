@@ -1,13 +1,13 @@
 # Configuration
 
-Every setting of atelier is a preference: a name, a type, a default value and limits. Read them all with their values:
+Every setting of Atelier is a preference: a name, a type, a default value and limits. Read them all with their values:
 
 ```sh
 atelier prefs
 ```
 
-Change one. atelier saves it in `$XDG_CONFIG_HOME/atelier/prefs` (`%APPDATA%\atelier\prefs` on Windows), and reads it
-at its next start:
+Change one. Atelier saves it in `$XDG_CONFIG_HOME/FromentSoftware/Atelier/prefs`
+(`%APPDATA%\FromentSoftware\Atelier\prefs` on Windows), and reads it at its next start:
 
 ```sh
 atelier set appearance.mode light
@@ -26,14 +26,16 @@ after a `:`.
 The look (`appearance.*`: the theme, light or dark, the finish, the glow, the text size, the zoom, the density...), the
 text and fonts (`appearance.text.*`), the window (`window.system_title`, `window.placement`, `window.toast_position`),
 the scrolling (`scrolling.*`), the input (`input.*`), the delays and menus (`timing.*`), the rendering (`rendering.*`),
-the updates (`update.auto`, `update.base_url`) and the messages (`general.messages`, `general.language`) are the settings
+the updates (`update.auto`, `update.base_url`), the messages (`general.messages`, `general.language`) and the keys and
+aliases you set from the command palette (`keys.custom`, `keys.aliases`: Ctrl+Enter on a command records a key, Alt+Enter
+makes the letters typed its alias) are the settings
 that every program of gui_toolkit has. Its
 [docs/settings.md](https://github.com/sachahjkl/gui_toolkit/blob/main/docs/settings.md) lists each with its default.
 atelier's defaults: the theme `atelier`, the text size 14 px, its own title bar (`window.system_title` off).
 
 `appearance.theme` is `atelier`, a theme of gui_toolkit by its name (Midnight, Graphite, Nord, Dracula, Gruvbox, Tokyo
 Night, Catppuccin, Rosé Pine, Kanagawa, One Dark, Solarized…), or one of your own: Settings > Appearance links to
-`$XDG_CONFIG_HOME/atelier/themes.txt`, made with a commented guide at the first click and read again each time it is
+`$XDG_CONFIG_HOME/FromentSoftware/Atelier/themes.txt`, made with a commented guide at the first click and read again each time it is
 saved.
 
 `update.auto` applies to the installed atelier only: it downloads the new release, with the new versions of the programs

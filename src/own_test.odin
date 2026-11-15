@@ -74,7 +74,7 @@ the_stepper_closes_only_what_ran :: proc(t: ^testing.T) {
 a_bundle_cannot_carry_atelier :: proc(t: ^testing.T) {
 	b := new(Bundle)
 	defer bundle_destroy(b)
-	manifest := `{"schema": 1, "platform": "linux-x64", "made": "2026-11-15", "programs": [{"slug": "atelier", "name": "atelier",
+	manifest := `{"schema": 1, "platform": "linux-x64", "made": "2026-11-15T18:42:07Z", "programs": [{"slug": "atelier", "name": "atelier",
 		"version": "0.1.0", "file": "atelier/atelier", "size": 1, "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}]}`
 	testing.expect(t, !bundle_parse(b, transmute([]u8)string(manifest)), "the slug atelier is refused")
 }

@@ -10,7 +10,7 @@ import update "gt:update"
 // A manifest of one program, its file of `size` bytes and SHA-256 `sha` (src/md/README.md, "The bundle").
 @(private = "file")
 manifest_of :: proc(size: int, sha: string) -> string {
-	return fmt.tprintf(`{{"schema": 1, "platform": "linux-x64", "made": "2026-11-15",
+	return fmt.tprintf(`{{"schema": 1, "platform": "linux-x64", "made": "2026-11-15T18:42:07Z",
  "programs": [{{"slug": "papier", "name": "Papier", "tagline": "A fast clipboard history.",
    "version": "0.23.2", "repository": "https://github.com/sachahjkl/papier", "site": "https://papier.froment.software/",
    "file": "papier/papier", "size": %d, "sha256": "%s", "logo": "papier/logo.png",
@@ -43,6 +43,7 @@ a_bundle_after_the_program_is_read_back :: proc(t: ^testing.T) {
 	if b == nil { return }
 	defer bundle_destroy(b)
 	testing.expect_value(t, b.platform, "linux-x64")
+	testing.expect_value(t, b.made_ms, 1794768127000)   // (2026-11-15T18:42:07Z: when it was made, to the second)
 	testing.expect_value(t, len(b.programs), 1)
 	p := b.programs[0]
 	testing.expect_value(t, p.slug, "papier")
@@ -86,7 +87,7 @@ a_manifest_that_cannot_be_checked_is_refused :: proc(t: ^testing.T) {
 // A manifest of one program with one file beside it (src/md/README.md, "What goes beside a program").
 @(private = "file")
 manifest_beside :: proc(program: []u8, beside_size: int, beside_sha: string) -> string {
-	return fmt.tprintf(`{{"schema": 1, "platform": "windows-x64", "made": "2026-11-15",
+	return fmt.tprintf(`{{"schema": 1, "platform": "windows-x64", "made": "2026-11-15T18:42:07Z",
  "programs": [{{"slug": "papier", "name": "Papier", "tagline": "A fast clipboard history.",
    "version": "0.23.2", "repository": "https://github.com/sachahjkl/papier", "site": "https://papier.froment.software/",
    "file": "papier/papier", "size": %d, "sha256": "%s",

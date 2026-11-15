@@ -14,6 +14,20 @@ no_action_key_types_text :: proc(t: ^testing.T) {
 	testing.expectf(t, len(got) == 0, "keys that type text: %v", got)
 }
 
+// Each command's id is its name for good: the person's key and alias of it, and the palette's memory of it, are stored
+// by it. Every one is set, well formed and alone in its table: the actions, then the programs' "Open" lines, whose ids
+// come from the bundle's slugs (a capital in a slug included).
+@(test)
+every_command_has_an_id :: proc(t: ^testing.T) {
+	table := make([dynamic]ui.Command, context.temp_allocator)
+	append(&table, ..slice.enumerated_array(&ACTIONS))
+	for slug in ([]string{APP_NAME, "papier", "Classeur", "opencode-native", "wren_2"}) {
+		append(&table, ui.Command{id = open_command_id(slug, context.temp_allocator), label = slug})
+	}
+	got := ui.command_ids_check(slice.enumerated_array(&ACTIONS), table[:])
+	testing.expectf(t, len(got) == 0, "ids: %v", got)
+}
+
 // The settings, the keys and quit are the window's: their keys work in the settings and over a dialog.
 @(test)
 the_window_actions_are_marked :: proc(t: ^testing.T) {

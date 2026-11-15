@@ -28,26 +28,26 @@ fr Relancer les installations échouées
 en Settings
 fr Réglages
 
-en atelier
-fr atelier
+en Atelier
+fr Atelier
 
 en Check for updates
 fr Rechercher des mises à jour
 
-en Update atelier and the programs
-fr Mettre à jour atelier et les programmes
+en Update Atelier and the programs
+fr Mettre à jour Atelier et les programmes
 
-en Install atelier…
-fr Installer atelier…
+en Install Atelier…
+fr Installer Atelier…
 
 en Keyboard shortcuts
 fr Raccourcis clavier
 
-en Quit atelier
-fr Quitter atelier
+en Quit Atelier
+fr Quitter Atelier
 
-en atelier's keys
-fr Les touches d'atelier
+en Atelier's keys
+fr Les touches d'Atelier
 
 en Open %s
 fr Ouvrir %s
@@ -63,10 +63,10 @@ en+ These programs are open: %s.
 fr Ce programme est ouvert : %s.
 fr+ Ces programmes sont ouverts : %s.
 
-en atelier closes it before it installs it. It keeps your data.
-en+ atelier closes them before it installs them. They keep your data.
-fr atelier le ferme avant de l'installer. Il garde vos données.
-fr+ atelier les ferme avant de les installer. Ils gardent vos données.
+en Atelier closes it before it installs it. It keeps your data.
+en+ Atelier closes them before it installs them. They keep your data.
+fr Atelier le ferme avant de l'installer. Il garde vos données.
+fr+ Atelier les ferme avant de les installer. Ils gardent vos données.
 
 en Close it and install
 en+ Close them and install
@@ -124,8 +124,8 @@ fr le fichier du programme reste utilisé
 en The program does not start on this system.
 fr Le programme ne démarre pas sur ce système.
 
-en The %s phase failed: atelier has no reason for it.
-fr L'étape %s a échoué : atelier n'en connaît pas la raison.
+en The %s phase failed: Atelier has no reason for it.
+fr L'étape %s a échoué : Atelier n'en connaît pas la raison.
 
 en The install did not finish: the program gave no reason. Its exit code: %s
 fr L'installation n'a pas abouti : le programme n'a donné aucune raison. Son code de sortie : %s
@@ -163,8 +163,8 @@ fr le fichier extrait a changé : sa taille ou son SHA-256 diffère
 en This installer, kept on your computer: it updates the suite and adds programs later.
 fr Cet installateur, gardé sur votre ordinateur : il met la suite à jour et ajoute des programmes plus tard.
 
-en atelier cannot install itself on this system
-fr atelier ne peut pas s'installer sur ce système
+en Atelier cannot install itself on this system
+fr Atelier ne peut pas s'installer sur ce système
 
 en Ticked at first
 fr Cochés d'emblée
@@ -190,25 +190,28 @@ fr Saisie
 en Delays and menus
 fr Délais et menus
 
+en Keys
+fr Touches
+
 en Updates
 fr Mises à jour
 
 en Rendering
 fr Rendu
 
-en This desktop draws no title bar for atelier's window (GNOME): atelier keeps its own.
-fr Ce bureau ne dessine pas de barre de titre pour la fenêtre d'atelier (GNOME) : atelier garde la sienne.
+en This desktop draws no title bar for Atelier's window (GNOME): Atelier keeps its own.
+fr Ce bureau ne dessine pas de barre de titre pour la fenêtre d'Atelier (GNOME) : Atelier garde la sienne.
 
-en atelier in the terminal (on the PATH)
-fr atelier dans le terminal (sur le PATH)
+en Atelier in the terminal (on the PATH)
+fr Atelier dans le terminal (sur le PATH)
 
-en A newer suite is available (atelier %s).
-fr Une suite plus récente est disponible (atelier %s).
+en A newer suite is available (Atelier %s).
+fr Une suite plus récente est disponible (Atelier %s).
 
-en A newer suite is available (atelier %s): %s is newer than what this copy carries.
-en+ A newer suite is available (atelier %s): %s are newer than what this copy carries.
-fr Une suite plus récente est disponible (atelier %s) : %s est plus récent que ce que cette copie contient.
-fr+ Une suite plus récente est disponible (atelier %s) : %s sont plus récents que ce que cette copie contient.
+en A newer suite is available (Atelier %s): %s is newer than what this copy carries.
+en+ A newer suite is available (Atelier %s): %s are newer than what this copy carries.
+fr Une suite plus récente est disponible (Atelier %s) : %s est plus récent que ce que cette copie contient.
+fr+ Une suite plus récente est disponible (Atelier %s) : %s sont plus récents que ce que cette copie contient.
 
 en The updates cannot be checked: %s.
 fr Les mises à jour ne peuvent pas être recherchées : %s.
@@ -222,31 +225,30 @@ fr Retour aux étapes
 en Licences
 fr Licences
 
-en The list of programs this copy of atelier carries cannot be read: download atelier again.
-fr La liste des programmes de cette copie d'atelier ne peut pas être lue : téléchargez atelier à nouveau.
+en The list of programs this copy of Atelier carries cannot be read: download Atelier again.
+fr La liste des programmes de cette copie d'Atelier ne peut pas être lue : téléchargez Atelier à nouveau.
 
-en This copy of atelier carries no programs: build it with ateliertool package.
-fr Cette copie d'atelier ne contient aucun programme : construisez-la avec ateliertool package.
+en This copy of Atelier carries no programs: build it with ateliertool package.
+fr Cette copie d'Atelier ne contient aucun programme : construisez-la avec ateliertool package.
 
-en The working man's tools · by Froment Software
-fr Les outils de l'artisan · par Froment Software
+en By
+fr Par
 
-en atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed.
-fr atelier installe les programmes de Froment Software en une fois. Choisissez les programmes, lisez leurs licences, et chacun s'installe de lui-même, pour vous seul : aucun administrateur n'est nécessaire.
+en The working man's tools
+fr Les outils de l'artisan
 
-en Each program updates itself once it is installed.
-fr Chaque programme se met à jour de lui-même une fois installé.
+en This copy carries %d program, made %s.
+en+ This copy carries %d programs, made %s.
+fr Cette copie contient %d programme, assemblée %s.
+fr+ Cette copie contient %d programmes, assemblée %s.
 
-en This copy carries %d program, made on %s.
-en+ This copy carries %d programs, made on %s.
-fr Cette copie contient %d programme, assemblée le %s.
-fr+ Cette copie contient %d programmes, assemblée le %s.
+en This copy carries %d program.
+en+ This copy carries %d programs.
+fr Cette copie contient %d programme.
+fr+ Cette copie contient %d programmes.
 
-en atelier is up to date: choose what to update.
-fr atelier est à jour : choisissez ce qu'il faut mettre à jour.
-
-en Choose the programs to install.
-fr Choisissez les programmes à installer.
+en Atelier is up to date: choose what to update.
+fr Atelier est à jour : choisissez ce qu'il faut mettre à jour.
 
 en Select all
 fr Tout cocher
@@ -266,9 +268,6 @@ fr %s disponible
 en Cannot be read here
 fr Illisible ici
 
-en Read the licence of each program chosen, and of what it includes. Accept them to install the programs.
-fr Lisez la licence de chaque programme choisi, et de ce qu'il inclut. Acceptez-les pour installer les programmes.
-
 en Reading the licences…
 fr Lecture des licences…
 
@@ -278,8 +277,8 @@ fr Ce programme n'a aucun fichier de licence.
 en Installing: %d of %d done
 fr Installation : %d sur %d terminés
 
-en The programs install themselves side by side. If you close the window, those under way end their install first.
-fr Les programmes s'installent côte à côte. Si vous fermez la fenêtre, ceux en cours terminent d'abord leur installation.
+en If you close the window, the installs under way finish first.
+fr Si vous fermez la fenêtre, les installations en cours se terminent d'abord.
 
 en %d installed, %d installing again.
 fr %d installés, %d en cours de réinstallation.
@@ -304,17 +303,11 @@ fr Réessayer
 en Open
 fr Ouvrir
 
-en Installed: it is in the applications menu
-fr Installé : il est dans le menu des applications
-
 en Details
 fr Détails
 
 en Exit code: %s
 fr Code de sortie : %s
-
-en Failed
-fr Échec
 
 en Choose the programs
 fr Choisir les programmes

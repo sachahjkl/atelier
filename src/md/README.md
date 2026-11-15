@@ -79,7 +79,7 @@ stepper shows (gui_toolkit's `ui.stepper`):
 
 0. **Close**: the copy of the program that runs is closed (below, "A program that runs"). The phase is `Skipped` when
    no copy ran, so every stepper has the same nodes;
-1. **Unpack**: its file is taken out of the bundle into atelier's scratch folder (`<cache>/atelier/<slug>-<version>/`),
+1. **Unpack**: its file is taken out of the bundle into atelier's scratch folder (`<cache>/FromentSoftware/Atelier/<slug>-<version>/`),
    mode 755 on Linux, and its SHA-256 is checked against the manifest (a file taken out at the start is checked again);
 2. **Install**: atelier runs `<file> --install`: the program copies itself into its install folder, writes its menu
    entry, its system record and its own parts (the start with the session, the PATH), as its own Install button does.
@@ -295,10 +295,16 @@ A part that atelier made in its own way would drift from the programs it install
   `atelier --quit` closes the atelier that runs, as it closes every program of the suite.
 - **The settings** (Ctrl+, or the gear): `prefs_page.Page` in place of the steps, with the standard settings (theme,
   atelier's own `atelier` first, language, text, window, updates, installation, diagnostics) and atelier's own
-  (`programs.ticked`). The file is `<config>/atelier/prefs`; `docs/configuration.md` lists every preference, and a test
-  checks it.
+  (`programs.ticked`). The file is `<config>/FromentSoftware/Atelier/prefs`: atelier's folders are its vendor's, then
+  its title (`APP_FOLDER`). An older atelier's folders (`<config>/atelier`...) are not moved: they hold only
+  preferences, and `platform.user_dirs_move` would also move `~/.local/share/atelier` on Linux, which is the installed
+  copy's folder (gui_toolkit installs a program in `$XDG_DATA_HOME/<slug>`): its menu entry would then point to nothing.
+  The runtime folder keeps `atelier`: an old and a new copy still meet on the instance's socket. `docs/configuration.md` lists every preference, and a test checks it.
 - **The command palette** (Ctrl+K): `ui.Command_Palette` over atelier's actions (the steps, the boxes, the settings, the
-  updates, the install of atelier, "Open <program>" once a program is installed) and the settings (`:`).
+  updates, the install of atelier, "Open <program>" once a program is installed) and the settings (`:`). Each command
+  has an id, the person's keys and aliases are stored by (`ui.Keymap`, the settings `keys.custom` and `keys.aliases`).
+  An "Open" line's id is `open.<slug>`: the bundle's slug stays from one version to the next, its name and the language
+  do not. Its keys are read with the steps' actions, from the table the palette is given (made once per language).
 - **Its own install** (`gt:setup` through `prefs_page.Install`): `--install`, `--uninstall`, `--status`, `--setup` and
   the Installation page. No offer at a start: atelier's own row of the Programs step installs it (above, "atelier's own
   row"). The person opens atelier again from the menu to add a program later. The install copies the running file, which is the program and its bundle: the installed copy carries its

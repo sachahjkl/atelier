@@ -13,6 +13,7 @@ import "core:time"
 import archive "gt:archive"
 import desktop "gt:desktop"
 import i18n "gt:i18n"
+import "gt:platform"
 import process "gt:process"
 import update "gt:update"
 
@@ -59,15 +60,13 @@ state_choosable :: proc(s: State) -> bool {
 	return s != .Reading && s != .Newer && s != .Unknown
 }
 
-// atelier's scratch folder: `<cache>/atelier`. Never the system's temporary folder: on many systems it is in memory, and
-// a bundle is more than 100 MB. "": the system names no cache folder.
+// atelier's scratch folder: its cache folder (`<cache>/FromentSoftware/Atelier`). Never the system's temporary folder: on
+// many systems it is in memory, and a bundle is more than 100 MB. "": the system names no cache folder.
 scratch_dir :: proc(allocator := context.allocator) -> string {
-	cache, err := os.user_cache_dir(context.temp_allocator)
-	if err != nil || cache == "" { return "" }
-	return join(cache, APP_NAME, allocator)
+	return platform.user_dir(.Cache, APP_FOLDER, allocator)
 }
 
-// The folder of one program's file: `<cache>/atelier/<slug>-<version>`.
+// The folder of one program's file: `<scratch>/<slug>-<version>`.
 scratch_folder :: proc(p: Program, allocator := context.allocator) -> string {
 	dir := scratch_dir(context.temp_allocator)
 	if dir == "" { return "" }
@@ -266,7 +265,7 @@ failure_reason :: proc(output: string, phase: Install_Phase, exit_code: Maybe(in
 		return l
 	}
 	code, ran := exit_code.?
-	if !ran { return fmt.tprintf(i18n.tr("The %s phase failed: atelier has no reason for it."), phase_words(phase)) }
+	if !ran { return fmt.tprintf(i18n.tr("The %s phase failed: Atelier has no reason for it."), phase_words(phase)) }
 	return fmt.tprintf(i18n.tr("The install did not finish: the program gave no reason. Its exit code: %s"), exit_code_words(code))
 }
 

@@ -18,6 +18,8 @@ package atelier
 import "base:runtime"
 import "core:fmt"
 import "core:log"
+import "core:time"
+import "core:slice"
 import "core:strings"
 import config "gt:config"
 import crash_bar "gt:crash_bar"
@@ -47,11 +49,15 @@ PROGRAM_CATALOGUES :: []i18n.Catalog{{"fr", #load("../i18n/fr.txt", string)}}
 // atelier's own mark: in the title bar, on the welcome and in the install's dialog.
 LOGO_PNG :: #load("../assets/logo_128.png")
 
+// The vendor's mark, in the "By" line of the install (gt:setup).
+VENDOR_MARK_PNG :: #load("../assets/froment-software-64.png")
+
 App :: struct {
 	shared:       host.Shared,
 	main:         host.Host,
 	bundle:       ^Bundle,         // nil: this copy carries no programs (bundle_error says why)
 	bundle_error: Bundle_Error,
+	started_ms:   i64,             // the wall clock at atelier's start, in ms since 1970: the "now" of the bundle's age
 	programs:     []Program,       // atelier's own first (own_program), then the bundle's in its order; empty without a bundle
 	rows:         []Row,           // one per program of `programs`, in its order
 	step:         Step,
@@ -88,6 +94,7 @@ App :: struct {
 	palette:       ui.Command_Palette,
 	palette_state: Palette_State,
 	sheet:         ui.Shortcuts_Sheet,       // F1: the sheet of the keys
+	keymap:        ui.Keymap,                // the person's keys and aliases (keys.custom, keys.aliases), set from the palette
 
 	// atelier's own install and updates (setup_view.odin, updates.odin)
 	install:        prefs_page.Install,
@@ -116,6 +123,8 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	the_app = app
 	defer the_app = nil
 	app.demo, app.demo_case, app.after_update, app.copied = opts.demo, opts.demo_case, opts.after_update, -1
+	// (read once, before the window: no frame reads the clock)
+	app.started_ms = time.to_unix_nanoseconds(time.now()) / 1_000_000
 	if opts.last_crash != "" {
 		log.warnf("the last run ended without its clean end: %s", opts.last_crash)
 		crash_bar.init(&app.crash_bar, opts.last_crash)
@@ -144,7 +153,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	}
 
 	platform.set_app_id(APP_NAME)
-	if !host.host_open(&app.main, &app.shared, {title = "atelier", size = WINDOW_SIZE, integrated_title = !app.settings.system_title}, view_build, app) {
+	if !host.host_open(&app.main, &app.shared, {title = APP_TITLE, size = WINDOW_SIZE, integrated_title = !app.settings.system_title}, view_build, app) {
 		log.error("no window")
 		app_free(app)
 		return 1
@@ -153,9 +162,14 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	// (the views' memory read here, before the loop; written on its own thread from now on)
 	ui.views_init(&app.views, {path = app.demo ? "" : views_path()})
 	ui.set_views(&h.state, &app.views)
+	// (the actions' ids known before the first command_pressed: else a person's key would not act in the first frames;
+	// the programs' "Open" lines are known when their table is made, actions.odin)
+	ui.keymap_known(&app.keymap, slice.enumerated_array(&ACTIONS))
+	ui.keymap_use(&h.state, &app.keymap)
 	app.announcer = {mode = app.settings.messages, window = h.win, state = &h.state}
-	// (the zoom, the density, the scrolling, the delays, the text's rendering...: applied now, then each as it changes)
-	prefs_page.standard_watch(&app.standard, &app.prefs, &h.state, {renderer = &app.shared.r, fonts = &app.shared.fonts, partial_redraw = &h.partial_redraw})
+	// (the zoom, the density, the scrolling, the delays, the text's rendering, the person's keys...: applied now, then
+	// each as it changes)
+	prefs_page.standard_watch(&app.standard, &app.prefs, &h.state, {renderer = &app.shared.r, fonts = &app.shared.fonts, partial_redraw = &h.partial_redraw, keymap = &app.keymap})
 	// (Lucide: the icons of the steps, the palette, the settings; one face, the one ui.lucide_icons gives the widgets)
 	icons, _ := font.load_embedded(&app.shared.fonts, lucide.DATA)
 	h.state.icon_font, h.state.lucide_font = icons, icons
@@ -167,14 +181,14 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	h.before_input = proc(h: ^host.Host) { app := (^App)(h.user); devtools.service(app.devtools, &h.state, &app.shared.r) }
 	// (the window where it was, at its size: the toolkit's window.placement; Wayland places it itself)
 	if !app.demo { prefs_page.placement_restore(&app.placement, &app.prefs, h.win) }
-	if img, ok := platform.clipboard_image_decode("image/png", LOGO_PNG, context.temp_allocator); ok {
-		app.logo = render.create_texture_rgba(&app.shared.r, img.size.x, img.size.y)
-		render.update_texture_rgba(&app.shared.r, app.logo, 0, 0, img.size.x, img.size.y, img.rgba)
-		app.logo_size = {f32(img.size.x), f32(img.size.y)}
-		app.install.logo = setup.Logo{app.logo, app.logo_size}
+	if logo, ok := setup.logo_make(&app.shared.r, LOGO_PNG); ok {
+		app.logo, app.logo_size = logo.texture, logo.size
+		app.install.logo = logo
 		// (atelier's own row shows the same texture: app_run destroys it once)
 		if len(app.rows) > 0 { app.rows[0].logo, app.rows[0].logo_size = app.logo, app.logo_size }
 	}
+	// (the vendor's mark in the "By" line of the install's dialog and of the Installation page: made before either opens)
+	if mark, ok := setup.logo_make(&app.shared.r, VENDOR_MARK_PNG, {16, 16}); ok { app.install.vendor_mark = mark }
 	if app.bundle != nil { start_ask(app) }
 	app.step = opts.step
 	if app.demo { demo_step(app, opts.step, opts.finished) }
@@ -220,7 +234,9 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 		if r.logo_size != {} && !app.programs[i].own { render.destroy_texture(&app.shared.r, r.logo) }
 		row_destroy(&r)
 	}
-	if app.logo_size != {} { render.destroy_texture(&app.shared.r, app.logo) }
+	// (app.logo is the install's logo: freed once, with it)
+	setup.logo_destroy(&app.shared.r, &app.install.logo)
+	setup.logo_destroy(&app.shared.r, &app.install.vendor_mark)
 	// (after the last build, while the window's State is there: which views were open is written)
 	ui.views_destroy(&app.views)
 	host.host_close(h)
@@ -261,6 +277,7 @@ app_free :: proc(app: ^App) {
 	prefs_page.destroy(&app.settings_page)
 	settings_free(&app.settings)
 	prefs_page.standard_unwatch(&app.standard)
+	ui.keymap_destroy(&app.keymap)   // (after standard_unwatch: its changes no longer reach the keymap)
 	if !app.demo { config.user_writer_stop(&app.prefs_writer, &app.prefs) }   // (the last change written)
 	prefs_page.placement_keeper_destroy(&app.placement)
 	config.prefs_destroy(&app.prefs)
@@ -656,7 +673,7 @@ ask_build :: proc(app: ^App) {
 		list := strings.join(names[:], ", ", context.temp_allocator)
 		ui.confirm_open(ASK_VIEW, {
 			title = fmt.tprintf(i18n.tr(n, "This program is open: %s.", "These programs are open: %s."), list),
-			note = i18n.tr(n, "atelier closes it before it installs it. It keeps your data.", "atelier closes them before it installs them. They keep your data."),
+			note = i18n.tr(n, "Atelier closes it before it installs it. It keeps your data.", "Atelier closes them before it installs them. They keep your data."),
 			act = i18n.tr(n, "Close it and install", "Close them and install"),
 			act_intent = ui.Intent.Success,
 			labels = {cancel = i18n.tr("Back"), enter = i18n.tr("%s (Enter)")},
