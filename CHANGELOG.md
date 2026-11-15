@@ -5,6 +5,16 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-15
+
+### Added
+- **atelier installs itself**: atelier goes in your profile with its menu entry and its uninstaller, with the programs it carries, so you open it again from the menu to add a program later. Use the settings' Installation page, `atelier --install` (also `--uninstall`, `--status`, `--setup`), or on Windows the offer at its first start.
+- **atelier updates itself**: the installed atelier downloads its new release, checked against its signed manifest, with the new versions of the programs it carries. The settings' Updates page checks at once on request.
+- **Its own title bar, settings and command palette, as in the suite's other programs**: the window has atelier's own title bar with the steps and their icons (the system's on request), Ctrl+, opens the settings (theme, language, text, window and the rest of the suite's common settings, and whether the programs start ticked), and Ctrl+K opens the command palette over the steps, the boxes, the settings and the programs just installed. Only one atelier runs at a time: a second start brings the first to the front.
+
+### Changed
+- **A sharper mark**: atelier's logo is a workbench and its vise in steel, with a square of orange stock held in it.
+
 ## [0.1.2] - 2026-11-15
 
 ### Changed
@@ -23,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.2.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.2.0
 [0.1.2]: https://github.com/sachahjkl/atelier/releases/tag/v0.1.2
 [0.1.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.1.1
 [0.1.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.1.0
