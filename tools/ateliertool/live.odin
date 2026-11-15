@@ -233,19 +233,30 @@ live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home:
 		if strings.has_suffix(f.name, "_install.txt") { _ = os.remove(f.fullpath) }
 	}
 	exe := fmt.tprintf("%s/papier", folder)
+	// (started here, not by atelier: on a distribution the release file takes the system's libraries, and the shell's
+	// loader paths (Nix's C library) break it; on NixOS there are no system libraries and it needs the shell's)
+	nixos := os.exists("/etc/NIXOS")
+	plain_env := make([dynamic]string, context.temp_allocator)
+	for e in env {
+		if !nixos && (strings.has_prefix(e, "LD_LIBRARY_PATH=") || strings.has_prefix(e, "LD_PRELOAD=")) { continue }
+		append(&plain_env, e)
+	}
+	extra := make([dynamic]string, context.temp_allocator)
+	append(&extra, fmt.tprintf("HOME=%s", home))
+	if !nixos { append(&extra, "LD_LIBRARY_PATH=", "LD_PRELOAD=") }
 	why: string
-	p, why = toolbox.sway_program(sway, {exe, "--hidden"}, {fmt.tprintf("HOME=%s", home)}, fmt.tprintf("%s/window/papier.log", LIVE_DIR))
+	p, why = toolbox.sway_program(sway, {exe, "--hidden"}, extra[:], fmt.tprintf("%s/window/papier.log", LIVE_DIR))
 	if why != "" { fmt.eprintln("live:", why); return }
 	deadline := time.tick_add(time.tick_now(), SHOTS_WAIT)
 	for time.tick_diff(time.tick_now(), deadline) > 0 {
-		out, _ := toolbox.capture({exe, "--status"}, {env = env})
+		out, _ := toolbox.capture({exe, "--status"}, {env = plain_env[:]})
 		if strings.contains(out, "running: true") && strings.contains(out, "to repair") {
 			fmt.println("live: papier runs, its install to repair")
 			return p, true
 		}
 		time.sleep(SHOTS_POLL)
 	}
-	out, _ := toolbox.capture({exe, "--status"}, {env = env})
+	out, _ := toolbox.capture({exe, "--status"}, {env = plain_env[:]})
 	fmt.eprintfln("live: papier does not run, or is not to repair:\n%s", out)
 	return
 }
