@@ -238,12 +238,13 @@ live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home:
 	nixos := os.exists("/etc/NIXOS")
 	plain_env := make([dynamic]string, context.temp_allocator)
 	for e in env {
-		if !nixos && (strings.has_prefix(e, "LD_LIBRARY_PATH=") || strings.has_prefix(e, "LD_PRELOAD=")) { continue }
+		// (and Nix's Vulkan driver, built for Nix's C library: the system's own drivers are found without it)
+		if !nixos && (strings.has_prefix(e, "LD_LIBRARY_PATH=") || strings.has_prefix(e, "LD_PRELOAD=") || strings.has_prefix(e, "VK_DRIVER_FILES=")) { continue }
 		append(&plain_env, e)
 	}
 	extra := make([dynamic]string, context.temp_allocator)
 	append(&extra, fmt.tprintf("HOME=%s", home))
-	if !nixos { append(&extra, "LD_LIBRARY_PATH=", "LD_PRELOAD=") }
+	if !nixos { append(&extra, "LD_LIBRARY_PATH=", "LD_PRELOAD=", "VK_DRIVER_FILES=") }
 	why: string
 	p, why = toolbox.sway_program(sway, {exe, "--hidden"}, extra[:], fmt.tprintf("%s/window/papier.log", LIVE_DIR))
 	if why != "" { fmt.eprintln("live:", why); return }

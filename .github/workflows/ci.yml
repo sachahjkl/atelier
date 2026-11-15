@@ -57,6 +57,11 @@ jobs:
           </busconfig>
           EOF
 
+      # (the released programs that live starts itself take the distribution's libraries, as on a person's machine:
+      # Vulkan with Mesa's software driver, fontconfig, Wayland)
+      - name: the distribution's Vulkan for the released programs
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1 libfontconfig1 libwayland-client0 libxkbcommon0 >/dev/null
+
       # (Vulkan's drivers are in /run/opengl-driver on NixOS: here, Mesa's software one from the flake's nixpkgs)
       - name: lavapipe
         run: |
