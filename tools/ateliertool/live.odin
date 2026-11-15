@@ -26,9 +26,13 @@ run_live :: proc(args: []string) -> int {
 	for sub in ([]string{"", "/.config", "/.local/share", "/.local/state", "/.cache", "/Desktop"}) {
 		if os.make_directory_all(fmt.tprintf("%s%s", home, sub)) != nil { fmt.eprintfln("live: %s cannot be made", home); return 1 }
 	}
-	env := toolbox.env_with({"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DESKTOP_DIR"},
+	// (a runtime folder of its own too: the programs' single instances live there, and the person's own papier, which
+	// runs, must neither be seen as this home's nor be closed by the test)
+	runtime := fmt.tprintf("%s/run", home)
+	if os.make_directory_all(runtime) != nil || os.chmod(runtime, {.Read_User, .Write_User, .Execute_User}) != nil { fmt.eprintfln("live: %s cannot be made", runtime); return 1 }
+	env := toolbox.env_with({"HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DESKTOP_DIR", "XDG_RUNTIME_DIR"},
 		fmt.tprintf("HOME=%s", home), fmt.tprintf("XDG_CONFIG_HOME=%s/.config", home), fmt.tprintf("XDG_DATA_HOME=%s/.local/share", home),
-		fmt.tprintf("XDG_STATE_HOME=%s/.local/state", home), fmt.tprintf("XDG_CACHE_HOME=%s/.cache", home))
+		fmt.tprintf("XDG_STATE_HOME=%s/.local/state", home), fmt.tprintf("XDG_CACHE_HOME=%s/.cache", home), fmt.tprintf("XDG_RUNTIME_DIR=%s", runtime))
 	atelier :: proc(env: []string, args: ..string) -> (out: string, code: int) {
 		command := make([dynamic]string, context.temp_allocator)
 		append(&command, PROGRAM, "--bundle", fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM))
@@ -68,7 +72,41 @@ run_live :: proc(args: []string) -> int {
 	if _, code := atelier(env, "--status"); code != 1 { fmt.eprintln("live: atelier --status does not say uninstalled"); failed = true }
 	if failed { return 1 }
 	fmt.println("live: every program installed, in its own home")
-	return live_window() ? 0 : 1
+	if !live_window() { return 1 }
+	return live_after_update() ? 0 : 1
+}
+
+// The new copy after the suite's update (`--after-update`, what atelier starts once its update is in place): it opens on
+// the Programs step with its line. The update itself needs a newer release on GitHub: its pure parts are suite_test's.
+@(private = "file")
+live_after_update :: proc() -> bool {
+	sway: toolbox.Sway
+	if why := toolbox.sway_start(&sway, fmt.tprintf("%s/after", LIVE_DIR), {config = SHOTS_SWAY, homes = true, cache = true}); why != "" { fmt.eprintln("live:", why); return false }
+	defer toolbox.sway_stop(&sway)
+	home := fmt.tprintf("%s/home", sway.dir)
+	_ = os.make_directory_all(home)
+	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
+	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--after-update"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT), fmt.tprintf("HOME=%s", home)}, fmt.tprintf("%s/after/atelier.log", LIVE_DIR))
+	if why != "" { fmt.eprintln("live:", why); return false }
+	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
+	c: cdp.Client
+	ok := false
+	deadline := time.tick_add(time.tick_now(), SHOTS_WAIT)
+	for !ok && time.tick_diff(time.tick_now(), deadline) > 0 {
+		if c, ok = cdp.connect(LIVE_PORT); !ok { time.sleep(SHOTS_POLL) }
+	}
+	if !ok { fmt.eprintln("live: the window after the update does not answer"); return false }
+	defer cdp.close(&c)
+	for words in ([]string{"atelier is up to date: choose what to update.", "Choose the programs to install."}) {
+		if !cdp.wait_for(&c, words, SHOTS_WAIT) {
+			shot := fmt.tprintf("%s/after/failed.png", LIVE_DIR)
+			cdp.shot(&c, shot)
+			fmt.eprintfln("live: %q never showed after --after-update (the window: %s)", words, shot)
+			return false
+		}
+	}
+	fmt.println("live: --after-update opens on the programs, with its line")
+	return true
 }
 
 // Whether `list` says atelier is installed (its own line: two spaces, then its slug; the heading starts with it too) and
@@ -108,6 +146,17 @@ live_window :: proc() -> bool {
 	for e in sway.env { if !strings.has_prefix(e, "HOME=") { append(&env, e) } }
 	append(&env, fmt.tprintf("HOME=%s", home))
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
+	data := ""
+	for e in env { if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] } }
+	// A program that runs: papier installed, its manifest taken away (to repair: its box is ticked), its installed copy
+	// started. The window must ask, close it and install it.
+	open, ok_open := live_open_papier(&sway, env[:], bundle, data, home)
+	if !ok_open { return false }
+	// A program whose install fails once: a file where its install folder goes. The window must show Retry; once the
+	// file is gone, the retry installs it.
+	failing := PROGRAMS[1].slug
+	obstacle := fmt.tprintf("%s/%s", data, failing)
+	if os.write_entire_file(obstacle, transmute([]u8)string("not a folder\n")) != nil { fmt.eprintfln("live: %s cannot be written", obstacle); return false }
 	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--look=dark"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT), fmt.tprintf("HOME=%s", home)}, fmt.tprintf("%s/window/atelier.log", LIVE_DIR))
 	if why != "" { fmt.eprintln("live:", why); return false }
 	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
@@ -146,6 +195,13 @@ live_window :: proc() -> bool {
 	step(&c, "This installer, kept on your computer", "", SHOTS_WAIT) or_return   // (atelier's own row)
 	step(&c, "Next", "Next", SHOTS_WAIT) or_return
 	step(&c, "MIT License", "Accept and install", SHOTS_WAIT) or_return
+	// (papier runs: the question names it, and its button closes it)
+	step(&c, "This program is open: Papier.", "Close it and install", LIVE_WAIT) or_return
+	if _, ended := toolbox.sway_wait(&sway, open, CLOSE_LIVE_WAIT); !ended { fmt.eprintln("live: the papier that ran was not closed"); return false }
+	fmt.println("live: the papier that ran is closed")
+	step(&c, "1 failed", "", LIVE_WAIT) or_return
+	if os.remove(obstacle) != nil { fmt.eprintfln("live: %s cannot be removed", obstacle); return false }
+	step(&c, "Retry the failed ones", "Retry the failed ones", SHOTS_WAIT) or_return
 	step(&c, "programs are installed", "", LIVE_WAIT) or_return
 	cdp.close(&c)
 
@@ -153,10 +209,43 @@ live_window :: proc() -> bool {
 	fmt.print(list)
 	if code != 0 || strings.contains(list, "Not installed") || strings.contains(list, "Repair") { fmt.eprintln("live: the window's install left a program out"); return false }
 	// (atelier installed itself from its own row: its menu entry in the window's home, and --status says installed)
-	data := ""
-	for e in env { if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] } }
 	if !live_own_installed(list, data) { return false }
 	if _, scode := toolbox.capture({PROGRAM, "--bundle", bundle, "--status"}, {env = env[:]}); scode != 0 { fmt.eprintfln("live: atelier --status says %d after the window's install", scode); return false }
-	fmt.println("live: every program installed from the window, side by side, atelier with them")
+	fmt.println("live: every program installed from the window, side by side, atelier with them; papier closed first, a failure retried")
 	return true
+}
+
+// How long the papier that runs may take to end once the window closes it (atelier's own bound is 10 s per act).
+CLOSE_LIVE_WAIT :: 40 * time.Second
+
+// papier installed in the window's home by the command line, its manifest taken away (to repair: the window ticks it),
+// then its installed copy started in the session, until its --status says it runs.
+@(private = "file")
+live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home: string) -> (p: os.Process, ok: bool) {
+	if out, code := toolbox.capture({PROGRAM, "--bundle", bundle, "install", "papier"}, {env = env}); code != 0 {
+		fmt.eprintfln("live: papier does not install:\n%s", out)
+		return
+	}
+	folder := fmt.tprintf("%s/papier", data)
+	files, err := os.read_all_directory_by_path(folder, context.temp_allocator)
+	if err != nil { fmt.eprintfln("live: %s cannot be read", folder); return }
+	for f in files {
+		if strings.has_suffix(f.name, "_install.txt") { _ = os.remove(f.fullpath) }
+	}
+	exe := fmt.tprintf("%s/papier", folder)
+	why: string
+	p, why = toolbox.sway_program(sway, {exe, "--hidden"}, {fmt.tprintf("HOME=%s", home)}, fmt.tprintf("%s/window/papier.log", LIVE_DIR))
+	if why != "" { fmt.eprintln("live:", why); return }
+	deadline := time.tick_add(time.tick_now(), SHOTS_WAIT)
+	for time.tick_diff(time.tick_now(), deadline) > 0 {
+		out, _ := toolbox.capture({exe, "--status"}, {env = env})
+		if strings.contains(out, "running: true") && strings.contains(out, "to repair") {
+			fmt.println("live: papier runs, its install to repair")
+			return p, true
+		}
+		time.sleep(SHOTS_POLL)
+	}
+	out, _ := toolbox.capture({exe, "--status"}, {env = env})
+	fmt.eprintfln("live: papier does not run, or is not to repair:\n%s", out)
+	return
 }

@@ -22,6 +22,9 @@ fr Ne cocher aucun programme
 en Accept the licences and install
 fr Accepter les licences et installer
 
+en Retry the failed installs
+fr Relancer les installations échouées
+
 en Settings
 fr Réglages
 
@@ -30,6 +33,9 @@ fr atelier
 
 en Check for updates
 fr Rechercher des mises à jour
+
+en Update atelier and the programs
+fr Mettre à jour atelier et les programmes
 
 en Install atelier…
 fr Installer atelier…
@@ -51,6 +57,27 @@ fr Les réglages ne peuvent pas être enregistrés
 
 en This licence cannot be read from the bundle.
 fr Cette licence ne peut pas être lue dans le paquet.
+
+en This program is open: %s.
+en+ These programs are open: %s.
+fr Ce programme est ouvert : %s.
+fr+ Ces programmes sont ouverts : %s.
+
+en atelier closes it before it installs it. It keeps your data.
+en+ atelier closes them before it installs them. They keep your data.
+fr atelier le ferme avant de l'installer. Il garde vos données.
+fr+ atelier les ferme avant de les installer. Ils gardent vos données.
+
+en Close it and install
+en+ Close them and install
+fr Le fermer et installer
+fr+ Les fermer et installer
+
+en Back
+fr Retour
+
+en %s (Enter)
+fr %s (Entrée)
 
 en After its install, the program says: %s
 fr Après son installation, le programme indique : %s
@@ -78,6 +105,12 @@ fr le programme ne démarre pas sur ce système
 
 en the program did not answer
 fr le programme n'a pas répondu
+
+en the program that runs does not end
+fr le programme ouvert ne se ferme pas
+
+en the program's file stays in use
+fr le fichier du programme reste utilisé
 
 en The program does not start on this system.
 fr Le programme ne démarre pas sur ce système.
@@ -130,6 +163,20 @@ fr Ce bureau ne dessine pas de barre de titre pour la fenêtre d'atelier (GNOME)
 en atelier in the terminal (on the PATH)
 fr atelier dans le terminal (sur le PATH)
 
+en A newer suite is available (atelier %s).
+fr Une suite plus récente est disponible (atelier %s).
+
+en A newer suite is available (atelier %s): %s is newer than what this copy carries.
+en+ A newer suite is available (atelier %s): %s are newer than what this copy carries.
+fr Une suite plus récente est disponible (atelier %s) : %s est plus récent que ce que cette copie contient.
+fr+ Une suite plus récente est disponible (atelier %s) : %s sont plus récents que ce que cette copie contient.
+
+en The updates cannot be checked: %s.
+fr Les mises à jour ne peuvent pas être recherchées : %s.
+
+en Everything is up to date.
+fr Tout est à jour.
+
 en Back to the steps
 fr Retour aux étapes
 
@@ -159,6 +206,9 @@ fr+ Cette copie contient %d programmes, assemblée le %s.
 en Each program updates itself once it is installed.
 fr Chaque programme se met à jour de lui-même une fois installé.
 
+en atelier is up to date: choose what to update.
+fr atelier est à jour : choisissez ce qu'il faut mettre à jour.
+
 en Choose the programs to install.
 fr Choisissez les programmes à installer.
 
@@ -177,6 +227,9 @@ fr Copié
 en Copy
 fr Copier
 
+en %s available
+fr %s disponible
+
 en Cannot be read here
 fr Illisible ici
 
@@ -194,6 +247,12 @@ fr Installation : %d sur %d terminés
 
 en The programs install themselves side by side. If you close the window, those under way end their install first.
 fr Les programmes s'installent côte à côte. Si vous fermez la fenêtre, ceux en cours terminent d'abord leur installation.
+
+en Retry
+fr Réessayer
+
+en Close
+fr Fermer
 
 en Unpack
 fr Extraire
@@ -230,12 +289,6 @@ fr Chacun est dans le menu des applications, et se met à jour de lui-même.
 en Open
 fr Ouvrir
 
-en Back
-fr Retour
-
-en Close
-fr Fermer
-
 en Choose the programs
 fr Choisir les programmes
 
@@ -244,6 +297,9 @@ fr Suivant
 
 en Accept and install
 fr Accepter et installer
+
+en Retry the failed ones
+fr Réessayer celles qui ont échoué
 
 en Reading…
 fr Lecture…

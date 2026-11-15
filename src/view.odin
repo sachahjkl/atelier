@@ -7,6 +7,7 @@ package atelier
 
 import "core:fmt"
 import "core:math"
+import "core:strings"
 import crash_bar "gt:crash_bar"
 import "gt:draw"
 import prefs_page "gt:prefs_page"
@@ -36,6 +37,7 @@ view_build :: proc(h: ^host.Host, size: host.Vec2) {
 		if ui.parent(page) { build_page(app, em) }
 		actions_build(app)
 		setup_build(app)
+		ask_build(app)
 	}
 }
 
@@ -67,7 +69,7 @@ build_page :: proc(app: ^App, em: f32) {
 			switch app.step {
 			case .Welcome:    welcome_view(app, em)
 			case .Programs:   programs_view(app, em)
-			case .Licences:   licences_view(app, em)
+			case .Licences, .Checking: licences_view(app, em)
 			case .Installing: installing_view(app, em)
 			case .Done:       done_view(app, em)
 			}
@@ -139,7 +141,7 @@ steps :: proc(app: ^App, em: f32) {
 	Shown :: struct { words, glyph: string, steps: bit_set[Step] }
 	shown := [3]Shown{
 		{i18n.tr("Programs"), lucide.PACKAGE, {.Programs}},
-		{i18n.tr("Licences"), lucide.SCALE, {.Licences}},
+		{i18n.tr("Licences"), lucide.SCALE, {.Licences, .Checking}},
 		{i18n.tr("Install"), lucide.DOWNLOAD, {.Installing, .Done}},
 	}
 	ui.next({width = ui.children_sum(), height = ui.pct(1), axis = .X, cross = .Center})
@@ -258,6 +260,15 @@ welcome_view :: proc(app: ^App, em: f32) {
 @(private = "file")
 programs_view :: proc(app: ^App, em: f32) {
 	if app.nixos { nixos_notice(app, em) }
+	if app.after_update {
+		if panel(em, "###after_update") {
+			ui.spacer(ui.px(em * 0.6))
+			icon_paragraph(em, "###after_update_text", lucide.CHECK_CIRCLE, i18n.tr("atelier is up to date: choose what to update."), "good")
+			ui.spacer(ui.px(em * 0.6))
+		}
+		ui.spacer(ui.px(em * 0.7))
+	}
+	if app.suite_version != "" { suite_banner_view(app, em) }
 	line_next()
 	if ui.row(.Center, id = "###select") {
 		ui.spacer(ui.px(em * MARGIN_EM))
@@ -267,6 +278,10 @@ programs_view :: proc(app: ^App, em: f32) {
 			ui.next({width = ui.fill(), height = ui.px(math.round(em * 2)), text_pad = 0})
 			ui.label(fmt.tprintf("%s###choose", i18n.tr("Choose the programs to install.")))
 		}
+		// (the updater checks on its own thread: the button turns meanwhile)
+		checking := app.update_phase == .Checking
+		if ui.button("###check", i18n.tr("Check for updates"), lucide.REFRESH_CW, {icon_font = ui.lucide_icons(), quiet = true, disabled = !action_enabled(app, .Check_Updates) && !checking, busy = checking}).clicked { update_check_asked(app) }
+		ui.spacer(ui.px(em * 0.4))
 		can := app.known
 		if ui.button("###all", i18n.tr("Select all"), lucide.CHECK, {icon_font = ui.lucide_icons(), quiet = true, disabled = !can}).clicked { select_all(app, true) }
 		ui.spacer(ui.px(em * 0.4))
@@ -277,6 +292,28 @@ programs_view :: proc(app: ^App, em: f32) {
 		ui.spacer(ui.px(em * 0.45))
 		program_row(app, p, &app.rows[i], em)
 	}
+}
+
+// A newer suite on offer (src/md/README.md, "The suite's updates, from atelier"): what its atelier carries that is newer,
+// and the button that updates atelier, then opens the new copy on this step.
+@(private = "file")
+suite_banner_view :: proc(app: ^App, em: f32) {
+	if panel(em, "###suite") {
+		ui.spacer(ui.px(em * 0.6))
+		icon_paragraph(em, "###suite_text", lucide.ARROW_UP_CIRCLE, suite_banner(app.suite_version, app.suite_newer), "accent")
+		ui.spacer(ui.px(em * 0.3))
+		line_next()
+		if ui.row(.Center, id = "###suite_buttons") {
+			ui.spacer(ui.fill())
+			// (the demo has no updater: its button is shown as it would be, and does nothing)
+			downloading := app.update_phase == .Downloading
+			disabled := !app.demo && !suite_update_possible(app) && !downloading
+			if button("###suite_update", i18n.tr("Update atelier and the programs"), lucide.DOWNLOAD, .Primary, disabled, busy = downloading) { suite_update(app) }
+			ui.spacer(ui.px(em * 0.9))
+		}
+		ui.spacer(ui.px(em * 0.6))
+	}
+	ui.spacer(ui.px(em * 0.7))
 }
 
 // On NixOS, Nix is the better install (it updates the programs with the system): said once, with each program's line
@@ -333,6 +370,14 @@ program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
 				if ui.tags("weak") {
 					ui.next({width = ui.text_size(), height = ui.px(math.round(em * 1.6)), text_pad = math.round(em * 0.5)})
 					ui.label(fmt.tprintf("%s###version", p.version))
+				}
+				// (the newer suite carries it at a newer version: after atelier's update)
+				if available := suite_available(app.suite_newer, p.slug); available != "" {
+					if ui.tags("accent") {
+						small_icon(em, lucide.ARROW_UP_CIRCLE, ui.color("text"))
+						ui.next({width = ui.text_size(), height = ui.px(math.round(em * 1.6)), text_pad = math.round(em * 0.2), font_size = math.round(em * 0.86)})
+						ui.label(fmt.tprintf("%s###available", fmt.tprintf(i18n.tr("%s available"), available)))
+					}
 				}
 			}
 			if ui.tags("weak") {
@@ -469,29 +514,47 @@ installing_view :: proc(app: ^App, em: f32) {
 			steps := install_steps(r^, p.own)
 			ui.next({width = ui.fill()})
 			ui.stepper("###phases", steps[:])
+			if r.result == .Failed {
+				ui.spacer(ui.px(em * 0.6))
+				retry_button(app, i, r^, em)
+			}
 			ui.spacer(ui.px(em * 0.9))
 		}
 	}
 }
 
+// A failed row's Retry: its whole way again. Its tooltip says why it failed (the Done step shows the whole output).
+@(private = "file")
+retry_button :: proc(app: ^App, index: int, r: Row, em: f32) {
+	tip := r.output
+	if nl := strings.index_byte(tip, '\n'); nl >= 0 { tip = tip[:nl] }
+	o := ui.Button_Options{icon_font = ui.lucide_icons(), tip = tip, disabled = app.look != .Idle}
+	if ui.button("###retry", i18n.tr("Retry"), lucide.ROTATE_CCW, o).clicked { retry(app, {index}) }
+}
+
 // The phases of a program's install as its stepper shows them: those before the phase under way done, that one turning
-// (or failed), those after it pending. atelier's own (`own`) takes nothing out: its Unpack is skipped, not done, and
-// its Install is a copy of the running file.
+// (or failed), those after it pending. Close is skipped when no copy ran (`Row.close`). atelier's own (`own`) takes
+// nothing out and never runs beside itself: its Close and Unpack are skipped, not done, and its Install is a copy of
+// the running file.
 install_steps :: proc(r: Row, own := false) -> [len(Install_Phase)]ui.Stepper_Step {
 	steps: [len(Install_Phase)]ui.Stepper_Step
+	started := r.result == .Installing || r.result == .Installed || r.result == .Failed
 	for phase in Install_Phase {
 		s := &steps[int(phase)]
 		switch phase {
+		case .Close:   s.label = i18n.tr("Close")
 		case .Unpack:  s.label = i18n.tr("Unpack")
 		case .Install: s.label = own ? i18n.tr("Copy") : i18n.tr("Install")
 		case .Check:   s.label = i18n.tr("Check")
 		}
-		if own && phase == .Unpack && r.result != .None {
+		// (known once the install started: before, the look has not said whether a copy runs)
+		skipped := (phase == .Close && (own || !r.close)) || (own && phase == .Unpack)
+		if skipped && started {
 			s.state = .Skipped
 			continue
 		}
 		switch r.result {
-		case .None, .Waiting: s.state = .Pending
+		case .None, .Waiting, .Retrying: s.state = .Pending
 		case .Installed:      s.state = .Done
 		case .Installing, .Failed:
 			switch {
@@ -513,7 +576,7 @@ install_fraction :: proc(app: ^App) -> f32 {
 		if r.result == .None { continue }
 		of += len(Install_Phase)
 		switch r.result {
-		case .None, .Waiting:         
+		case .None, .Waiting, .Retrying:
 		case .Installing:             sum += int(r.phase)
 		case .Installed, .Failed:     sum += len(Install_Phase)
 		}
@@ -526,7 +589,7 @@ install_fraction :: proc(app: ^App) -> f32 {
 result_mark :: proc(result: Result, em: f32) {
 	words, tone, glyph: string
 	switch result {
-	case .None, .Waiting: words, tone = i18n.tr("Waiting"), "weak"
+	case .None, .Waiting, .Retrying: words, tone = i18n.tr("Waiting"), "weak"
 	case .Installing:     words, tone = i18n.tr("Installing…"), ""
 	case .Installed:      words, tone, glyph = i18n.tr("Installed"), "good", lucide.CHECK
 	case .Failed:         words, tone, glyph = i18n.tr("Failed"), "bad", lucide.X
@@ -618,6 +681,8 @@ done_view :: proc(app: ^App, em: f32) {
 					}
 				} else {
 					result_mark(r.result, em)
+					ui.spacer(ui.px(em * 0.6))
+					retry_button(app, i, r^, em)
 				}
 				ui.spacer(ui.px(em * 0.9))
 			}
@@ -662,15 +727,25 @@ buttons :: proc(app: ^App, em: f32) {
 			case .Licences:
 				ui.spacer(ui.px(em * 0.5))
 				if button("###install", i18n.tr("Accept and install"), lucide.DOWNLOAD, .Success, !licences_ready(app) || chosen_count(app) == 0) { app_step(app, .Next) }
+			case .Checking:
+				// (the look for the programs that run, then its question: the button itself waits)
+				ui.spacer(ui.px(em * 0.5))
+				button("###install", i18n.tr("Accept and install"), lucide.DOWNLOAD, .Success, busy = true)
+			case .Done:
+				if action_enabled(app, .Retry_Failed) {
+					ui.spacer(ui.px(em * 0.5))
+					if button("###retry_failed", i18n.tr("Retry the failed ones"), lucide.ROTATE_CCW, .Primary) { retry_failed(app) }
+				}
 			}
 		}
 		ui.spacer(ui.px(em * MARGIN_EM))
 	}
 }
 
+// A button of the steps. `busy`: its act is under way, the spinner in its glyph's place (the toolkit's busy button).
 @(private = "file")
-button :: proc(id, label, glyph: string, intent: ui.Intent, disabled := false) -> bool {
-	return ui.button(id, label, glyph, {icon_font = ui.lucide_icons(), intent = intent, disabled = disabled}).clicked
+button :: proc(id, label, glyph: string, intent: ui.Intent, disabled := false, busy := false) -> bool {
+	return ui.button(id, label, glyph, {icon_font = ui.lucide_icons(), intent = intent, disabled = disabled, busy = busy}).clicked
 }
 
 ////////////////////////////////

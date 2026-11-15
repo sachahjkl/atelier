@@ -8,9 +8,11 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:sync"
+import "core:time"
 import archive "gt:archive"
 import desktop "gt:desktop"
 import i18n "gt:i18n"
+import process "gt:process"
 import update "gt:update"
 
 // The state of a program in atelier: what its box offers (src/md/README.md, "The states of a program in atelier").
@@ -31,6 +33,8 @@ Status :: struct {
 	program:   string,   // the installed program's path ("": none)
 	reason:    string,   // Unknown: why
 	by_nix:    bool,     // installed by the Nix configuration: no box (atelier's own row)
+	running:   bool,     // a copy of the program runs (its line `running: true`)
+	quits:     bool,     // the installed copy says `quit: yes`: its --quit ends the copy that runs (open_read)
 }
 
 status_destroy :: proc(s: ^Status) {
@@ -113,10 +117,12 @@ status_read :: proc(path: string, carried: string, allocator := context.allocato
 }
 
 // The state of a program from its `--status`: the exit code (0 installed, 2 to repair, 1 not installed), its lines
-// `  version: X` and `  program: P`, and the version carried. Another exit code: the program could not answer.
+// `  version: X`, `  program: P` and `  running: true|false`, and the version carried. Another exit code: the program
+// could not answer.
 status_parse :: proc(code: int, text: string, carried: string, allocator := context.allocator) -> (s: Status) {
 	installed := status_field(text, "version")
 	program := status_field(text, "program")
+	s.running = status_field(text, "running") == "true"
 	switch code {
 	case STATUS_ABSENT: s.state = .Absent
 	case STATUS_REPAIR: s.state = .Repair
@@ -152,6 +158,78 @@ status_field :: proc(text: string, key: string) -> string {
 	return ""
 }
 
+// The status of a program right before its install (src/md/README.md, "A program that runs"): `--status` of the carried
+// file, then, when a copy runs, the installed copy's own `--status`: its `quit: yes` says that the copy that runs
+// understands --quit. A program built before the toolkit's --quit has no such line, and its --quit would open its window.
+open_read :: proc(path: string, carried: string, allocator := context.allocator) -> Status {
+	s := status_read(path, carried, allocator)
+	if s.running && s.program != "" {
+		// (its output beside the carried file: nothing is written in the program's own folder)
+		_, out, ok := run_captured({s.program, "--status"}, strings.concatenate({path, ".installed.out"}, context.temp_allocator))
+		s.quits = ok && status_field(out, "quit") == "yes"
+	}
+	return s
+}
+
+// How long the Close phase waits for each of its acts: the copy asked to end, the processes ended, the file freed; and
+// how often it looks.
+CLOSE_WAIT :: 10 * time.Second
+CLOSE_POLL :: 50 * time.Millisecond
+
+// Closes the copy of a program that runs before its file `exe` (the installed copy) is replaced: its --quit when it has
+// one (`quits`), then the processes that still run that file are ended, then the file must be free. `scratch`: the
+// carried file, beside which the output of --quit is written. why: "" when the file is free (in the language in use).
+close_program :: proc(exe: string, quits: bool, scratch: string) -> (why: string) {
+	// (no installed copy: nothing holds the file that the install writes; a copy run from elsewhere ends with its --quit)
+	if exe == "" { return "" }
+	if quits {
+		// (its exit code is not the last word: the processes are looked at anyway)
+		_, _, _ = run_captured({exe, "--quit"}, strings.concatenate({scratch, ".quit.out"}, context.temp_allocator))
+	}
+	if !processes_end(exe, .Terminate) && !processes_end(exe, .Kill) { return i18n.tr("the program that runs does not end") }
+	if !wait_until(CLOSE_WAIT, exe, file_free) { return i18n.tr("the program's file stays in use") }
+	return ""
+}
+
+// Ends the processes that run `exe` with `sig`, then waits until none runs it (bounded). True when none runs.
+@(private = "file")
+processes_end :: proc(exe: string, sig: process.Signal) -> bool {
+	sent := false
+	deadline := time.tick_add(time.tick_now(), CLOSE_WAIT)
+	for {
+		found := process.processes_of(exe, context.temp_allocator)
+		if len(found) == 0 { return true }
+		if !sent {
+			for p in found { _, _ = process.signal_process(p.pid, p.start_time, sig) }
+			sent = true
+		}
+		if time.tick_diff(time.tick_now(), deadline) <= 0 { return false }
+		time.sleep(CLOSE_POLL)
+	}
+}
+
+// Whether `cond(arg)` came true within `limit`, looked at every CLOSE_POLL.
+@(private = "file")
+wait_until :: proc(limit: time.Duration, arg: string, cond: proc(arg: string) -> bool) -> bool {
+	deadline := time.tick_add(time.tick_now(), limit)
+	for {
+		if cond(arg) { return true }
+		if time.tick_diff(time.tick_now(), deadline) <= 0 { return false }
+		time.sleep(CLOSE_POLL)
+	}
+}
+
+// Whether the file can be opened for writing: no process runs it any more (Windows holds a running program's file;
+// Linux refuses to write a running file, ETXTBSY). A file that is not there is free.
+@(private = "file")
+file_free :: proc(path: string) -> bool {
+	if !os.exists(path) { return true }
+	f, err := os.open(path, {.Write})
+	if err != nil { return false }
+	os.close(f)
+	return true
+}
+
 // Runs `<file> --install`: the program installs itself. `output` is what it said (owned), kept to show when it failed.
 install_one :: proc(path: string, allocator := context.allocator) -> (ok: bool, output: string) {
 	code, out, started := run_captured({path, "--install"})
@@ -168,11 +246,11 @@ nixos :: proc() -> bool { return desktop.is_nixos() }
 @(private = "file")
 start_lock: sync.Mutex
 
-// Runs a program to its end; `out` is its standard output and its error output (temp memory), written to
-// `<program>.out` beside it, then read and deleted.
+// Runs a program to its end; `out` is its standard output and its error output (temp memory), written to `out_path`
+// (default: `<program>.out` beside it), then read and deleted.
 @(private = "file")
-run_captured :: proc(command: []string) -> (code: int, out: string, ok: bool) {
-	path := strings.concatenate({command[0], ".out"}, context.temp_allocator)
+run_captured :: proc(command: []string, out_path := "") -> (code: int, out: string, ok: bool) {
+	path := out_path != "" ? out_path : strings.concatenate({command[0], ".out"}, context.temp_allocator)
 	f, ferr := os.open(path, {.Write, .Create, .Trunc}, os.Permissions_Default_File)
 	if ferr != nil { return 0, "", false }
 	p: os.Process

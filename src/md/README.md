@@ -62,9 +62,11 @@ repository, and two programs released the same day would race for the same versi
 ## The install of one program
 
 Every program the person chose installs at the same time, each on a worker of its own. One program's install shares
-nothing with another's: its own file, its own folder, its own process. Each install has three phases, which its
+nothing with another's: its own file, its own folder, its own process. Each install has four phases, which its
 stepper shows (gui_toolkit's `ui.stepper`):
 
+0. **Close**: the copy of the program that runs is closed (below, "A program that runs"). The phase is `Skipped` when
+   no copy ran, so every stepper has the same nodes;
 1. **Unpack**: its file is taken out of the bundle into atelier's scratch folder (`<cache>/atelier/<slug>-<version>/`),
    mode 755 on Linux, and its SHA-256 is checked against the manifest (a file taken out at the start is checked again);
 2. **Install**: atelier runs `<file> --install`: the program copies itself into its install folder, writes its menu
@@ -72,7 +74,45 @@ stepper shows (gui_toolkit's `ui.stepper`):
    The exit code says the result (0 installed); the output is kept to show when it failed;
 3. **Check**: `<file> --status` again: the carried version must now be the installed one.
 
-The scratch file is deleted at the end. A global bar counts the programs done.
+The scratch file is deleted once the program is installed. After a failure it stays: a retry checks it again and uses
+it. A global bar counts the programs done.
+
+## A program that runs
+
+On Windows, a program's file cannot be replaced while the program runs: its `--install` fails. On Linux the file is
+replaced, but the copy that runs keeps the old version until it ends. So on both systems atelier closes a running
+program before it installs it, once the person agrees. (Intent of the toolkit's part:
+[gui_toolkit's src/md/features/quit.md](https://github.com/sachahjkl/gui_toolkit/blob/master/src/md/features/quit.md).)
+
+1. **The look.** Right before the installs start ("Accept and install", or a retry), a worker reads `--status` of each
+   program again: the state may have changed while the person read the licences. `running: true` says that a copy runs;
+   `program:` is the installed copy. When a copy runs, the worker also reads the installed copy's own `--status`: its
+   `quit: yes` says that the copy that runs understands `--quit`.
+2. **The question.** When at least one copy runs, a confirmation (`ui.confirm_open`) names them: "These programs are
+   open: Papier, Classeur. atelier closes them before it installs them. They keep your data." The buttons are "Close
+   them and install" and "Back". Back returns to the licences (or, for a retry, leaves the row failed). No question when
+   none runs.
+3. **The close** (the Close phase, on the program's worker):
+   - with `quit: yes`, atelier runs `<installed copy> --quit`: the copy that runs ends as its own Quit does;
+   - then the processes whose executable is the installed copy's file (`process.processes_of`, by the full path, never
+     by the name) are ended (`process.signal_process`: Terminate, then Kill), each wait bounded;
+   - then atelier waits, bounded, until the file can be opened for writing: on Windows a process that is ending still
+     holds it.
+
+   A program built before the toolkit's `--quit` says no `quit:` line. Its `--quit` would open its window or fail, so
+   atelier never runs it: it ends the program's process.
+4. **atelier itself** never runs beside this atelier: one atelier at a time (`gt:instance`), and a second start hands
+   itself over to the first. Its own row has no look, and its Close is `Skipped`.
+
+Refused: an install that skips a running program without a word, and a close without a question. The person may have
+unsaved work in it.
+
+## A failed install, again
+
+A failed row shows why, and a button "Retry" (the icon `ROTATE_CCW`), on the Installing and the Done steps. The Done step
+also has "Retry the failed ones" when at least one failed. A retry runs the row's whole way again: the look, the
+question when the program runs, then Close, Unpack, Install and Check. Its stepper starts again. One look at a time: the
+Retry buttons wait while a look or its question is under way.
 
 Two processes started at the same moment can inherit each other's handles. Only the start is serialised (a lock), and
 each program writes its output to a file of its own, not to a pipe: a pipe's reader waits for every process that holds
@@ -144,20 +184,44 @@ Its row differs from a carried program's in what runs, not in what it shows:
 One window, one step at a time. The steps are an explicit state machine (`Step` in `src/wizard.odin`):
 
 ```
-Welcome -> Programs -> Licences -> Installing -> Done
-             ^  |         |
-             +--+---------+  (Back)
+Welcome -> Programs -> Licences -> Checking -> Installing -> Done
+             ^  |         |  ^         |            ^          |
+             +--+---------+  +---------+ (Back)     +----------+ (Retry)
 ```
+
+Each chosen program has its own result (`Result`, `result_next`):
+
+```
+None -> Waiting -> Installing -> Installed
+          |            |
+          v (Back)     v
+        None         Failed -> Retrying -> Installing
+                                   |
+                                   v (Back)
+                                 Failed
+```
+
+The look for running copies (`Look`, `look_next`) is one at a time:
+
+```
+Idle -> Reading -> To_Ask -> Asking -> Idle (the answer)
+           |
+           +-> Idle (none runs)
+```
+
+`To_Ask` exists because a dialog opens in a build: the worker's answer sets it, the next build opens the question.
 
 - **Welcome**: what atelier is, by Froment Software, and the number of programs it carries. One button: Choose the programs.
 - **Programs**: one row per program, atelier's own first: its box, logo, name, tagline, version, state. "Select all"
   and "Select none". Next is enabled when a box is ticked.
 - **Licences**: the licences of the chosen programs, one section each (atelier's first), its text in a scroll view.
   Next is "Accept and install".
-- **Installing**: one line per chosen program, all installing at once, each with its stepper (Unpack, Install, Check)
-  and a bar for the whole. No Back: an install that started ends.
+- **Checking**: the Licences step while the look for running copies reads, and while its question is open. Its button
+  turns. The title bar shows Licences.
+- **Installing**: one line per chosen program, all installing at once, each with its stepper (Close, Unpack, Install,
+  Check) and a bar for the whole. No Back: an install that started ends. A failed line has Retry.
 - **Done**: what was installed, where it is, and a button per installed program that starts it. A failed install shows
-  its output.
+  its output and Retry; "Retry the failed ones" retries them all. A retry goes back to Installing.
 
 Closing the window during Installing waits for the programs that are installing, then ends (the worker never leaves a half
 copy: each program's own install writes atomically).
@@ -173,7 +237,8 @@ A part that atelier made in its own way would drift from the programs it install
   system's title bar instead, at once. The window's place is kept (`prefs_page.Placement_Keeper`).
 - **One atelier at a time** (`gt:instance`): a second start hands its launcher's activation token to the first, whose
   window comes to the front, and ends. Two ateliers would race to install the same programs. `--demo` owns nothing: it
-  is for the pictures.
+  is for the pictures. Its handler takes the toolkit's `instance.MESSAGE_PING` and `instance.MESSAGE_QUIT`:
+  `atelier --quit` closes the atelier that runs, as it closes every program of the suite.
 - **The settings** (Ctrl+, or the gear): `prefs_page.Page` in place of the steps, with the standard settings (theme,
   atelier's own `atelier` first, language, text, window, updates, installation, diagnostics) and atelier's own
   (`programs.ticked`). The file is `<config>/atelier/prefs`; `docs/configuration.md` lists every preference, and a test
@@ -193,6 +258,37 @@ A part that atelier made in its own way would drift from the programs it install
 Refused: an update file of atelier without the bundle (the toolkit's `release.package_` writes the program alone). The
 installed copy would then carry no programs, or the programs of its first install for ever.
 
+### The suite's updates, from atelier
+
+The person updates the programs from atelier in two moves: atelier updates itself, then installs what its new bundle
+carries. The only trusted channel is atelier's own signed update: a new atelier release carries the programs' latest
+versions (the daily `refresh.yml` makes sure of it), and its file is signed and checked (signature, SHA-256) by
+`gt:update`.
+
+1. **Check.** "Check for updates" (a button in the Programs step's head, the palette's command) asks the updater now.
+   Its button turns while the updater checks. The check runs on the updater's thread, never in a frame.
+2. **What is newer.** When a newer atelier is on offer, a worker downloads the small manifest published beside that
+   release, `atelier-<version>-<platform>.json` (the new bundle's `bundle.json`). It is not signed: it decides only what
+   is *shown*, never what is installed. A banner above the list says "A newer suite is available (atelier 0.4.0): Papier
+   0.25.0, cliche 0.9.0 are newer than what this copy carries", and each such row has a note "0.25.0 available". When
+   the manifest cannot be read, the banner names atelier's version alone.
+3. **Update.** "Update atelier and the programs" asks the updater to download, check and put the new file in place
+   (`update.install_now`; the updater's rules decide where: the running file, installed or not). Once it is in place,
+   atelier starts its new copy with `--after-update` and ends (`app.launch_after`, after the single instance is let go,
+   as for a Restart). When the updater already put it in place by itself, the button restarts at once.
+4. **After the update.** `--after-update` opens on the Programs step with the line "atelier is up to date: choose what to
+   update.". The rows whose installed version is older than the new bundle's are ticked by the usual rule (`Older`).
+   The person installs as always, with the question about the programs that run.
+
+When atelier is already the latest, the answer to the check is "Everything is up to date" (a toast), and the rows that
+are `Older` already offer "Update from …". When the check fails (offline), the toast says "The updates cannot be
+checked:" and the reason. Nothing waits for it.
+
+The pure parts are in `src/suite.odin` (what is newer, the banner's words), tested by `suite_test.odin`.
+
+Refused: reading each program's own update manifest from atelier and installing those files. That is a second way to
+install a program, beside the bundle, with as many keys as programs; the bundle's file is already signed as a whole.
+
 ### Everything is read from the bundle at the start
 
 The bundle is read by its path, at the offsets of its index. The updater puts a new file at that path while atelier
@@ -205,13 +301,19 @@ again at an install (its first try failed) is checked against its SHA-256, so a 
 
 - `atelier`: the window.
 - `atelier list`: atelier, then the programs carried, their version and state, no window.
-- `atelier install <slug>… | all`: those programs installed without a window (what the CI's live check runs). The slug
-  `atelier` is atelier itself; `all` includes it. The exit code is 0 when each one installed.
-- `atelier --install`, `--uninstall`, `--status`, `--setup`: atelier's own install (`gt:setup`), as in every program.
+- `atelier install <slug>… | all [--close]`: those programs installed without a window (what the CI's live check runs).
+  The slug `atelier` is atelier itself; `all` includes it. The exit code is 0 when each one installed. A command line
+  asks no question: a program that runs is reported and left as it is (exit 1), unless `--close` allows atelier to close
+  it first, as the window's "Close them and install" does.
+- `atelier --install`, `--uninstall`, `--status`, `--quit`, `--setup`: atelier's own install (`gt:setup`), as in every
+  program.
 - `atelier prefs`, `atelier set <name> <value>`, `--pref name=value`: the preferences.
 - `atelier --bundle <file>`: read the programs from another file (a bundle built by `ateliertool bundle` without the
   program: development).
 - `atelier --look=dark|light`: `--pref appearance.mode=dark|light` for this run (the pictures).
+- `atelier --after-update`: the window on the Programs step after atelier updated itself (the suite's updates, above).
+- `atelier --demo --demo-case failure|update`: the demo with a failed install, or with a newer suite on offer (the
+  pictures).
 - `atelier --version`, `atelier --help`.
 
 ## Subtle points

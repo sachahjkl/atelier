@@ -47,7 +47,7 @@ atelier_identity :: proc() -> desktop.Identity {
 setup_options :: proc() -> setup.Setup_Options {
 	return setup.Setup_Options{
 		identity = atelier_identity(), version = APP_VERSION, install_folder = APP_NAME, icons = ICON_PNGS[:],
-		choices = SETUP_CHOICES[:], running = app_running,
+		choices = SETUP_CHOICES[:], running = app_running, quit = app_quit_ask,
 		prepare = proc(o: ^desktop.Integration_Options, choices: []bool, user: rawptr) {
 			if len(choices) == len(SETUP_CHOICES) { o.add_to_path = choices[0] }
 			// (a test's places come from the environment: its install never reaches the person's desktop)

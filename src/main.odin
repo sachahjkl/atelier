@@ -24,20 +24,27 @@ USAGE :: `atelier: Froment Software's programs, chosen and installed at once
   atelier                         the window: choose the programs, read their licences, install them
   atelier list                    atelier, then the programs carried, their version and their state here; no window
   atelier install <slug>... | all those programs installed, without a window (exit 0 when each one installed); the
-                                  slug atelier is atelier itself, and all includes it
+                                  slug atelier is atelier itself, and all includes it. A program that runs is left
+                                  as it is (exit 1), unless --close: then atelier closes it first
   atelier --setup                 the window with atelier's own install shown (also in the settings: Installation)
   atelier --install               install this copy of atelier for you, with the programs it carries: the program, its
                                   menu entry, its uninstaller; no window
   atelier --uninstall             take atelier's install away (the programs it installed and your settings stay)
   atelier --status                what of atelier is installed, and whether it runs (exit 0 installed, 2 to repair,
                                   1 not installed)
+  atelier --quit                  close the atelier that runs, and wait for it to end (exit 0 ended or not running)
   atelier prefs                   every preference, its value and what it does
   atelier set <name> <value>      change a preference (saved)
   atelier --bundle <file>         the programs of another file (a bundle made by ateliertool bundle)
   atelier --demo                  the window with made-up states: nothing is read of this computer, nothing runs
                                   (the pictures of the site); the names, logos and licences are the bundle's
-  atelier --step <name>           the window on a step: welcome, programs, licences, installing, done (with --demo:
-                                  the pictures; without it, welcome or programs only)
+  atelier --step <name>           the window on a step: welcome, programs, licences, checking, installing, done (with
+                                  --demo: the pictures, checking with programs that run; without it, welcome or
+                                  programs only)
+  atelier --demo-case <name>      with --demo: failure (one install fails) or update (a newer suite is on offer):
+                                  the pictures of Retry and of the suite's update
+  atelier --after-update          the window on the programs after atelier updated itself: those installed at an
+                                  older version than it carries are ticked
   atelier --look=dark|light       --pref appearance.mode=dark|light: the window dark or light for this run
   atelier --version
   atelier --help
@@ -55,6 +62,8 @@ main :: proc() {
 Run_Options :: struct {
 	bundle:     string,   // the file the programs are read from (the executable unless --bundle)
 	demo:       bool,
+	demo_case:  Demo_Case,   // with demo: what more it shows
+	after_update: bool,      // this run is the new copy after the suite's update: on Programs, with its line
 	step:       Step,
 	last_crash: string,           // the report of the last run, which crashed ("": it ended cleanly)
 	owner:      instance.Owner,   // the single instance, held by this process (state None: not held)
@@ -67,17 +76,23 @@ run :: proc(all_args: []string) -> int {
 	for i := 0; i < len(all_args); i += 1 {
 		a := all_args[i]
 		switch a {
-		case "--bundle", "--step":
+		case "--bundle", "--step", "--demo-case":
 			if i + 1 >= len(all_args) { process.console_error(USAGE); return 2 }
 			i += 1
-			if a == "--bundle" {
+			switch a {
+			case "--bundle":
 				opts.bundle = all_args[i]
-			} else {
+			case "--step":
 				s, ok := step_of(all_args[i])
 				if !ok { process.console_error(fmt.tprintf("atelier: no step %s\n", all_args[i])); return 2 }
 				opts.step, step_asked = s, true
+			case "--demo-case":
+				c, ok := demo_case_of(all_args[i])
+				if !ok { process.console_error(fmt.tprintf("atelier: no demo case %s\n", all_args[i])); return 2 }
+				opts.demo_case = c
 			}
 		case "--demo": opts.demo = true
+		case "--after-update": opts.after_update = true
 		// (the standard appearance.mode for this run: a picture's look never reaches the person's file)
 		case "--look=dark":  append(&args, "--pref", "appearance.mode=dark")
 		case "--look=light": append(&args, "--pref", "appearance.mode=light")
@@ -86,7 +101,9 @@ run :: proc(all_args: []string) -> int {
 	}
 	if opts.bundle == "" { opts.bundle = process.executable_path() }
 	// (a real run starts from a step that needs no choice made before it)
-	if step_asked && !opts.demo && opts.step > .Programs { process.console_error("atelier: --step licences, installing and done need --demo\n"); return 2 }
+	if step_asked && !opts.demo && opts.step > .Programs { process.console_error("atelier: --step licences, checking, installing and done need --demo\n"); return 2 }
+	// (the new copy after the suite's update: the person chooses what to update)
+	if opts.after_update && !step_asked { opts.step = .Programs }
 	prefs: config.Prefs
 	rest, problems := prefs_open(&prefs, args[:])
 	defer config.prefs_destroy(&prefs)
@@ -102,8 +119,13 @@ run :: proc(all_args: []string) -> int {
 		if len(words) > 1 { break }
 		return list_run(opts.bundle)
 	case "install":
-		if len(words) < 2 { break }
-		return install_run(opts.bundle, words[1:])
+		slugs := make([dynamic]string, context.temp_allocator)
+		close := false
+		for w in words[1:] {
+			if w == "--close" { close = true } else { append(&slugs, w) }
+		}
+		if len(slugs) == 0 { break }
+		return install_run(opts.bundle, slugs[:], close)
 	case "prefs":
 		return prefs_list(&prefs)
 	case "set":
@@ -165,8 +187,10 @@ status_of :: proc(b: ^Bundle, p: Program, allocator := context.allocator) -> Sta
 }
 
 // `atelier install <slug>... | all`: each program installs itself, one after the other. 0 when each one installed. The
-// slug atelier is atelier itself (gt:setup, in this process); `all` includes it, first, as in the window.
-install_run :: proc(path: string, slugs: []string) -> int {
+// slug atelier is atelier itself (gt:setup, in this process); `all` includes it, first, as in the window. A command line
+// asks no question: a program that runs is left as it is, a failure, unless `close` (--close) allows atelier to close it
+// first, as the window's "Close them and install" does (src/md/README.md, "A program that runs").
+install_run :: proc(path: string, slugs: []string, close := false) -> int {
 	b := bundle_for_command(path)
 	if b == nil { return 1 }
 	defer bundle_destroy(b)
@@ -195,14 +219,29 @@ install_run :: proc(path: string, slugs: []string) -> int {
 			ok, output = false, strings.clone(why)
 		} else {
 			// (a program installed at this version or a newer one stays as it is: the window does not tick it either)
-			s := status_read(file, p.version)
+			s := open_read(file, p.version)
 			defer status_destroy(&s)
 			if s.state == .Current || s.state == .Newer {
 				process.console_write(fmt.tprintf("%s %s: %s, left as it is\n", p.slug, p.version, state_words(s)))
 				scratch_remove(p^)
 				continue
 			}
-			ok, output = install_one(file)
+			if s.running && !close {
+				process.console_write(fmt.tprintf("%s %s: it runs: left as it is (close it, or run atelier install --close)\n", p.slug, p.version))
+				scratch_remove(p^)
+				failed += 1
+				continue
+			}
+			not_closed := ""
+			if s.running {
+				not_closed = close_program(s.program, s.quits, file)
+				if not_closed == "" { process.console_write(fmt.tprintf("%s %s: closed\n", p.slug, p.version)) }
+			}
+			if not_closed != "" {
+				ok, output = false, strings.clone(not_closed)
+			} else {
+				ok, output = install_one(file)
+			}
 		}
 		process.console_write(fmt.tprintf("%s %s: %s\n", p.slug, p.version, ok ? "installed" : "failed"))
 		if output != "" { process.console_write(fmt.tprintf("    %s\n", indent(output))) }

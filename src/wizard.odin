@@ -1,23 +1,23 @@
 package atelier
 
-// The steps of the window, an explicit state machine (src/md/README.md, "The steps of the window"):
+// The state machines of the window (src/md/README.md, "The steps of the window"): the steps, each chosen program's
+// result, and the look for the programs that run. Each one changes only through its `_next` procedure; what a step
+// needs before Next (a box ticked) is the view's: its button is disabled.
 //
-//   Welcome -> Programs -> Licences -> Installing -> Done
-//                ^  |         |
-//                +--+---------+  (Back)
-//
-// step_next is the only place a step changes. What a step needs before Next (a box ticked) is the view's: its button
-// is disabled.
+//   Welcome -> Programs -> Licences -> Checking -> Installing -> Done
+//                ^  |         |  ^         |            ^          |
+//                +--+---------+  +---------+ (Back)     +----------+ (Retry)
 
 import "core:strings"
 import "gt:render"
 
-Step :: enum u8 { Welcome, Programs, Licences, Installing, Done }
+Step :: enum u8 { Welcome, Programs, Licences, Checking, Installing, Done }
 
 Step_Event :: enum u8 {
-	Next,       // Choose the programs, Next, Accept and install
-	Back,
+	Next,       // Choose the programs, Next, Accept and install; Checking: no program runs, or the person closes them
+	Back,       // Checking: the person answered Back to the question
 	Finished,   // the last install ended
+	Retry,      // Done: a failed install starts again
 }
 
 // The step after `event` on `step`. Installing has no Back: an install that started ends.
@@ -26,43 +26,125 @@ step_next :: proc(step: Step, event: Step_Event) -> Step {
 	case .Welcome:
 		if event == .Next { return .Programs }
 	case .Programs:
-		switch event {
-		case .Next:     return .Licences
-		case .Back:     return .Welcome
-		case .Finished:
+		#partial switch event {
+		case .Next: return .Licences
+		case .Back: return .Welcome
 		}
 	case .Licences:
-		switch event {
-		case .Next:     return .Installing
-		case .Back:     return .Programs
-		case .Finished:
+		#partial switch event {
+		case .Next: return .Checking
+		case .Back: return .Programs
+		}
+	case .Checking:
+		#partial switch event {
+		case .Next: return .Installing
+		case .Back: return .Licences
 		}
 	case .Installing:
 		if event == .Finished { return .Done }
 	case .Done:
+		if event == .Retry { return .Installing }
 	}
 	return step
 }
 
 // The name of a step on the command line (--step).
-STEP_NAMES := [Step]string{.Welcome = "welcome", .Programs = "programs", .Licences = "licences", .Installing = "installing", .Done = "done"}
+STEP_NAMES := [Step]string{.Welcome = "welcome", .Programs = "programs", .Licences = "licences", .Checking = "checking", .Installing = "installing", .Done = "done"}
 
 step_of :: proc(name: string) -> (Step, bool) {
 	for n, s in STEP_NAMES { if n == name { return s, true } }
 	return .Welcome, false
 }
 
-// The phases of one program's install, shown as its stepper's nodes: its file taken out (or checked again), its own
-// `--install`, then `--status` read again (the carried version must be installed).
-Install_Phase :: enum u8 { Unpack, Install, Check }
+// The phases of one program's install, shown as its stepper's nodes: the copy that runs closed (Skipped when none ran),
+// its file taken out (or checked again), its own `--install`, then `--status` read again (the carried version must be
+// installed).
+Install_Phase :: enum u8 { Close, Unpack, Install, Check }
 
-// How the install of a chosen program went.
+// How the install of a chosen program goes.
+//
+//   None -> Waiting -> Installing -> Installed
+//             |            |
+//             v (Back)     v
+//           None         Failed -> Retrying -> Installing
+//                                     |
+//                                     v (Back)
+//                                   Failed
 Result :: enum u8 {
 	None,         // not chosen
-	Waiting,
+	Waiting,      // chosen: the look for a copy that runs, then the question
+	Retrying,     // failed, and started again: the look, then the question
 	Installing,
 	Installed,
 	Failed,
+}
+
+Result_Event :: enum u8 {
+	Choose,    // "Accept and install"
+	Start,     // the look found no copy that runs, or the person agreed to close it
+	Give_Up,   // the person answered Back
+	Succeed,
+	Fail,
+	Retry,
+}
+
+result_next :: proc(r: Result, event: Result_Event) -> Result {
+	switch r {
+	case .None:
+		if event == .Choose { return .Waiting }
+	case .Waiting:
+		#partial switch event {
+		case .Start:   return .Installing
+		case .Give_Up: return .None
+		}
+	case .Retrying:
+		#partial switch event {
+		case .Start:   return .Installing
+		case .Give_Up: return .Failed
+		}
+	case .Installing:
+		#partial switch event {
+		case .Succeed: return .Installed
+		case .Fail:    return .Failed
+		}
+	case .Installed:
+	case .Failed:
+		if event == .Retry { return .Retrying }
+	}
+	return r
+}
+
+// Whether the row's install is not over: its look, its question or its phases are under way.
+result_busy :: proc(r: Result) -> bool {
+	return r == .Waiting || r == .Retrying || r == .Installing
+}
+
+// The look for the programs that run, one at a time:
+//
+//   Idle -> Reading -> To_Ask -> Asking -> Idle (the answer)
+//              |
+//              +-> Idle (none runs)
+//
+// To_Ask: a dialog opens in a build, and the worker's answer comes between two builds.
+Look :: enum u8 { Idle, Reading, To_Ask, Asking }
+
+Look_Event :: enum u8 { Start, None_Run, Some_Run, Shown, Answer }
+
+look_next :: proc(l: Look, event: Look_Event) -> Look {
+	switch l {
+	case .Idle:
+		if event == .Start { return .Reading }
+	case .Reading:
+		#partial switch event {
+		case .None_Run: return .Idle
+		case .Some_Run: return .To_Ask
+		}
+	case .To_Ask:
+		if event == .Shown { return .Asking }
+	case .Asking:
+		if event == .Answer { return .Idle }
+	}
+	return l
 }
 
 // One program of the bundle in the window: its box, its state, its logo, its licences' texts and its install.
@@ -75,6 +157,7 @@ Row :: struct {
 	licences:  []string,        // each licence's text, read when the Licences step first shows them (owned; nil: not read)
 	result:    Result,
 	phase:     Install_Phase,   // Installing: the phase under way; Failed: the phase that failed
+	close:     bool,            // a copy of it ran and the person agreed to close it: its Close phase runs
 	output:    string,          // what its --install said, or why a phase failed (owned)
 }
 

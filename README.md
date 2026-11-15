@@ -33,15 +33,17 @@ Each release of atelier carries the latest release of each program. Its notes sa
 1. **Programs**: each program says what is installed: nothing yet, an older version (ticked: it is updated), or the same
    version (not ticked).
 2. **Licences**: the licence of each program you chose, and of what it includes (icons, fonts).
-3. **Install**: the programs install themselves side by side, each with its steps (unpack, install, check), as its own
-   Install button does: its folder in your
+3. **Install**: a program that is open is named first, and closed once you agree. Then the programs install themselves
+   side by side, each with its steps (close, unpack, install, check), as its own Install button does: its folder in your
    profile, its menu entry, its uninstaller (Settings > Apps on Windows). No administrator.
-4. **Done**: a button opens each program. Each one updates itself from then on.
+4. **Done**: a button opens each program. Each one updates itself from then on. A failed install has Retry.
 
 | | |
 |---|---|
 | ![Licences](docs/screenshots/licences.png) | ![Install](docs/screenshots/installing.png) |
 | The licences of what you chose | Side by side, each with its steps |
+| ![Programs that are open](docs/screenshots/close.png) | ![A failed install and its Retry](docs/screenshots/retry.png) |
+| A program that is open is closed first | A failed install, tried again |
 
 ## atelier itself
 
@@ -50,7 +52,11 @@ atelier is one more program of the suite: its own title bar, its settings (Ctrl+
 - **It installs itself** with the programs it carries: it is the first line of the programs, ticked when it is not
   installed (also the settings' Installation page, or `atelier --install`). Open it again from the menu to add a
   program later.
-- **It updates itself** once installed: a new release brings the new versions of the programs too.
+- **It updates itself** once installed: a new release brings the new versions of the programs too. "Check for updates"
+  on the programs' step names what a newer atelier carries; "Update atelier and the programs" updates atelier, then
+  opens it again with the programs to update ticked.
+
+  ![A newer suite on offer: the programs it updates, and its button](docs/screenshots/update.png)
 - **Its settings** are the suite's common ones (theme, language, text, window, updates) and whether the programs start
   ticked. [docs/configuration.md](docs/configuration.md) lists them.
 
@@ -75,8 +81,12 @@ From a terminal, without a window:
 ./atelier-*-linux-x64 list                  # the programs it carries, their version, what is installed
 ./atelier-*-linux-x64 install papier classeur
 ./atelier-*-linux-x64 install all
+./atelier-*-linux-x64 install all --close     # close the programs that are open first (else they are left as they are)
 ./atelier-*-linux-x64 --install             # atelier itself, in your profile, with its menu entry
 ```
+
+In the window, a program that is open is named before anything starts: "Close them and install" closes it, then
+installs it. A failed install has a Retry button.
 
 ## Build
 

@@ -10,8 +10,10 @@ package atelier
 //      start": an update may put a new file at its path);
 //   2. then, unless in the demo, one task per program, all at once: its file taken out and its --status read
 //      (status_work), so that a box shows its state as soon as it is known;
-//   3. after "Accept and install", one task per program chosen, all at once: its phases (Unpack, Install, Check), each
-//      one posted back as it starts (install_work).
+//   3. after "Accept and install" (or a retry), one task reads again whether each program chosen runs (look_work); when
+//      one runs, the window asks the person before anything starts;
+//   4. then one task per program, all at once: its phases (Close, Unpack, Install, Check), each one posted back as it
+//      starts (install_work).
 
 import "base:runtime"
 import "core:fmt"
@@ -53,7 +55,11 @@ App :: struct {
 	programs:     []Program,       // atelier's own first (own_program), then the bundle's in its order; empty without a bundle
 	rows:         []Row,           // one per program of `programs`, in its order
 	step:         Step,
+	look:         Look,            // the look for the programs that run, one at a time (wizard.odin)
+	batch:        [dynamic]int,    // the rows of the look under way: they start once it ends
+	asking:       [dynamic]int,    // the rows of the batch whose copy runs: the question names them
 	demo:         bool,            // made-up states, nothing runs (--demo)
+	demo_case:    Demo_Case,       // what more the demo shows (--demo-case: the pictures of Retry, of a newer suite)
 	known:        bool,            // the start's task answered: the logos and the licences are there, nixos is known
 	nixos:        bool,            // Nix is the better install here: its lines are offered above the programs
 	logo:         render.Texture,  // atelier's
@@ -88,7 +94,15 @@ App :: struct {
 	installed_copy: bool,              // this program is the installed copy: it updates itself (update.auto)
 	updater:        ^update.Updater,   // nil in the demo
 	update_serial:  int,               // the updater's state last said
+	update_phase:   update.Phase,      // ... and its phase, for the builds (they never ask the updater)
 	launch_after:   string,            // this program again after an update, started once this one has ended (owned)
+	launch_after_update: bool,         // ... with --after-update: the suite's update goes on in the new copy
+
+	// the suite's updates (updates.odin, suite.odin)
+	suite_version: string,             // the newer atelier on offer whose programs were asked ("": none; owned)
+	suite_newer:   []Newer_Program,    // what it carries that is newer than this copy (owned)
+	suite_asked:   bool,               // "Update atelier and the programs": the new copy starts once it is in place
+	after_update:  bool,               // this run is the new copy (--after-update): its line on the Programs step
 }
 
 // The App of the process: a worker's answer finds it.
@@ -100,7 +114,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	defer free(app)
 	the_app = app
 	defer the_app = nil
-	app.demo, app.copied = opts.demo, -1
+	app.demo, app.demo_case, app.after_update, app.copied = opts.demo, opts.demo_case, opts.after_update, -1
 	if opts.last_crash != "" {
 		log.warnf("the last run ended without its clean end: %s", opts.last_crash)
 		crash_bar.init(&app.crash_bar, opts.last_crash)
@@ -219,9 +233,10 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	prefs_page.install_launch(&app.install)
 	launch := app.launch_after
 	app.launch_after = ""
+	launch_args: []string = app.launch_after_update ? {"--after-update"} : nil
 	app_free(app)
 	if launch != "" {
-		if !setup.launch(launch) { log.errorf("%s does not start", launch) }
+		if !setup.launch(launch, launch_args) { log.errorf("%s does not start", launch) }
 		delete(launch)
 	}
 	return 0
@@ -230,6 +245,10 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 @(private = "file")
 app_free :: proc(app: ^App) {
 	delete(app.rows)
+	delete(app.batch)
+	delete(app.asking)
+	delete(app.suite_version)
+	newer_destroy(app.suite_newer)
 	delete(app.programs)
 	bundle_destroy(app.bundle)
 	delete(app.prefs_path)
@@ -292,19 +311,33 @@ app_instance_name :: proc() -> string {
 	return instance.key(ODIN_DEBUG ? "atelier.dev" : "atelier", platform.user_dir(.Config, "", context.temp_allocator))
 }
 
-// What `atelier --status` hands the running one: only whether it answers.
-APP_MESSAGE_PING :: "\x02ping"
+// How long a message to the running atelier waits for its answer.
+APP_MESSAGE_WAIT_MS :: 2000
 
 // Whether an atelier runs and answers (--status: setup.Setup_Options.running).
 app_running :: proc() -> bool {
-	return instance.send({name = app_instance_name(), wait_ms = 2000}, transmute([]u8)string(APP_MESSAGE_PING)) == .Forwarded
+	return instance.send({name = app_instance_name(), wait_ms = APP_MESSAGE_WAIT_MS}, transmute([]u8)string(instance.MESSAGE_PING)) == .Forwarded
 }
 
-// A second start's message (on the instance's thread): its launcher's activation token, handed to the window's thread.
+// Asks the running atelier to end, as its Quit does (--quit: setup.Setup_Options.quit).
+app_quit_ask :: proc() -> bool {
+	return instance.send({name = app_instance_name(), wait_ms = APP_MESSAGE_WAIT_MS}, transmute([]u8)string(instance.MESSAGE_QUIT)) == .Forwarded
+}
+
+// A message of another process (on the instance's thread): a ping, a request to end, or a second start's launcher's
+// activation token, handed to the window's thread.
 @(private = "file")
 app_message :: proc(user: rawptr, message: []byte) {
 	app := (^App)(user)
-	if string(message) == APP_MESSAGE_PING { return }
+	switch string(message) {
+	case instance.MESSAGE_PING: return
+	case instance.MESSAGE_QUIT:
+		// (the window closes on its own thread, as Ctrl+Q does: an install under way ends first)
+		ui.post(&app.main.state, proc(_: rawptr, _: u64) {
+			if a := the_app; a != nil && !a.closing { platform.request_close(a.main.win) }
+		}, nil, 0)
+		return
+	}
 	token := strings.clone(string(message))
 	if !ui.post(&app.main.state, app_message_raise, rawptr(raw_data(token)), u64(len(token))) { delete(token) }
 }
@@ -327,12 +360,22 @@ app_message_raise :: proc(data: rawptr, word: u64) {
 app_step :: proc(app: ^App, event: Step_Event) {
 	next := step_next(app.step, event)
 	if next == app.step { return }
+	from := app.step
 	app.step = next
 	app.copied = -1
-	if next == .Installing {
-		for &r in app.rows { r.result = r.ticked ? .Waiting : .None }
-		if app.demo { demo_install(app) } else { install_start(app) }
+	// "Accept and install": the rows ticked are chosen, then the look for the copies that run
+	if from == .Licences && next == .Checking {
+		clear(&app.batch)
+		for &r, i in app.rows {
+			r.result, r.close = .None, false
+			if !r.ticked { continue }
+			r.result = result_next(r.result, .Choose)
+			append(&app.batch, i)
+		}
+		// (the demo's look is made up: demo_step says what it shows)
+		if !app.demo { look_start(app) }
 	}
+	if from == .Checking && next == .Installing && app.demo { demo_install(app) }
 }
 
 // The rows chosen.
@@ -509,7 +552,139 @@ status_lost :: proc(data: rawptr) {
 }
 
 ////////////////////////////////
-// 3. The installs, side by side
+// 3. The look for the programs that run, and the question
+
+// One task reads again, right before the installs, the --status of each program of the batch: the state may have
+// changed while the person read the licences (src/md/README.md, "A program that runs"). The programs are read one
+// after the other: a --status takes a moment, and the person waits for the whole answer anyway.
+
+@(private = "file")
+Look_Job :: struct {
+	bundle: ^Bundle,
+	rows:   []Look_Row,
+}
+
+@(private = "file")
+Look_Row :: struct {
+	index:   int,
+	program: Program,
+	scratch: string,   // the row's file taken out ("": take it out now; owned)
+	status:  Status,
+	read:    bool,     // the status was read (atelier's own is not: it never runs beside this atelier)
+}
+
+// Starts the look for the rows of the batch.
+@(private = "file")
+look_start :: proc(app: ^App) {
+	app.look = look_next(app.look, .Start)
+	clear(&app.asking)
+	j := new(Look_Job)
+	j.bundle = app.bundle
+	j.rows = make([]Look_Row, len(app.batch))
+	for i, k in app.batch {
+		j.rows[k] = {index = i, program = app.programs[i], scratch = strings.clone(app.rows[i].scratch)}
+	}
+	ui.task(&app.main.state, look_work, look_done, j, look_lost)
+}
+
+@(private = "file")
+look_work :: proc(data: rawptr) {
+	j := (^Look_Job)(data)
+	for &r in j.rows {
+		// (one atelier at a time: no other atelier runs beside this one)
+		if r.program.own { continue }
+		if r.scratch == "" {
+			why: string
+			r.scratch, why = take_out(j.bundle, r.program)
+			// (the install says why: its Unpack takes the file out again)
+			if why != "" { continue }
+		}
+		r.status, r.read = open_read(r.scratch, r.program.version), true
+		free_all(context.temp_allocator)
+	}
+}
+
+@(private = "file")
+look_done :: proc(data: rawptr, _: u64) {
+	j := (^Look_Job)(data)
+	defer look_lost(j)
+	app := the_app
+	if app == nil || app.closing { return }
+	for &lr in j.rows {
+		r := &app.rows[lr.index]
+		if r.scratch == "" { r.scratch, lr.scratch = lr.scratch, "" }
+		// (a status that could not be read says nothing of a copy that runs: the row keeps the one it had)
+		if !lr.read || lr.status.state == .Unknown { continue }
+		row_status(r, lr.status, tick = false)
+		lr.status = {}
+		if r.status.running { append(&app.asking, lr.index) }
+	}
+	if len(app.asking) == 0 {
+		app.look = look_next(app.look, .None_Run)
+		install_go(app)
+		return
+	}
+	// (the next build opens the question: ask_build)
+	app.look = look_next(app.look, .Some_Run)
+}
+
+@(private = "file")
+look_lost :: proc(data: rawptr) {
+	j := (^Look_Job)(data)
+	for &r in j.rows {
+		delete(r.scratch)
+		status_destroy(&r.status)
+	}
+	delete(j.rows)
+	free(j)
+}
+
+// The question's id among the window's views.
+ASK_VIEW :: "close_running"
+
+// The question, opened by the build after the look found a copy that runs, and its answer, read by the next builds.
+ask_build :: proc(app: ^App) {
+	#partial switch app.look {
+	case .To_Ask:
+		names := make([dynamic]string, context.temp_allocator)
+		for i in app.asking { append(&names, app.programs[i].name) }
+		n := len(names)
+		list := strings.join(names[:], ", ", context.temp_allocator)
+		ui.confirm_open(ASK_VIEW, {
+			title = fmt.tprintf(i18n.tr(n, "This program is open: %s.", "These programs are open: %s."), list),
+			note = i18n.tr(n, "atelier closes it before it installs it. It keeps your data.", "atelier closes them before it installs them. They keep your data."),
+			act = i18n.tr(n, "Close it and install", "Close them and install"),
+			act_intent = ui.Intent.Success,
+			labels = {cancel = i18n.tr("Back"), enter = i18n.tr("%s (Enter)")},
+		})
+		app.look = look_next(app.look, .Shown)
+	case .Asking:
+		switch ui.confirm_answer(ASK_VIEW) {
+		case .None:
+		case .Confirmed: ask_answer(app, true)
+		case .Cancelled: ask_answer(app, false)
+		}
+	}
+}
+
+// The person's answer: the programs that run are closed and the batch installs, or nothing of the batch starts (Back).
+@(private = "file")
+ask_answer :: proc(app: ^App, close: bool) {
+	app.look = look_next(app.look, .Answer)
+	if close {
+		for i in app.asking { app.rows[i].close = true }
+		install_go(app)
+		return
+	}
+	for i in app.batch { app.rows[i].result = result_next(app.rows[i].result, .Give_Up) }
+	clear(&app.batch)
+	clear(&app.asking)
+	// (the first install goes back to the licences; a retry leaves its rows failed)
+	if app.step == .Checking { app_step(app, .Back) } else { install_finished(app) }
+}
+
+////////////////////////////////
+// 4. The installs, side by side
 
 // Each program installs itself in a process of its own, in a folder of its own: nothing is shared between two installs,
 // so they all start at once (the chores run as many as they have threads). Each phase that starts is posted back for
@@ -521,31 +696,80 @@ Install_Job :: struct {
 	program: Program,
 	index:   int,
 	scratch: string,          // the file taken out at the start ("": take it out now)
+	close:   bool,            // a copy runs, and the person agreed to close it: the Close phase runs
+	exe:     string,          // the installed copy, which the Close phase frees ("": none)
+	quits:   bool,            // the installed copy understands --quit
 	phase:   Install_Phase,   // the phase that ran last (where it failed when !ok)
 	ok:      bool,
 	output:  string,
 	status:  Status,          // read again after the install: where the program is now
 }
 
-// Starts the install of every row waiting.
-install_start :: proc(app: ^App) {
-	for &r, i in app.rows {
-		if r.result != .Waiting { continue }
+// Starts the install of every row of the batch (the look found no copy that runs, or the person agreed to close them).
+@(private = "file")
+install_go :: proc(app: ^App) {
+	if app.demo {
+		demo_go(app)
+		return
+	}
+	if app.step == .Checking { app_step(app, .Next) }
+	for i in app.batch {
+		r := &app.rows[i]
+		if r.result != .Waiting && r.result != .Retrying { continue }
 		p := app.programs[i]
-		// (atelier's own has nothing to take out: its Unpack is skipped, install_steps)
-		r.result, r.phase = .Installing, p.own ? .Install : .Unpack
+		r.result = result_next(r.result, .Start)
+		// (atelier's own has nothing to take out nor to close: install_steps skips them)
+		r.phase = p.own ? .Install : r.close ? .Close : .Unpack
+		delete(r.output)
+		r.output = ""
 		j := new(Install_Job)
-		j.bundle, j.program, j.index, j.scratch = app.bundle, p, i, strings.clone(r.scratch)
+		j.bundle, j.program, j.index, j.scratch, j.phase = app.bundle, p, i, strings.clone(r.scratch), r.phase
+		j.close, j.exe, j.quits = r.close, strings.clone(r.status.program), r.status.quits
 		ui.task(&app.main.state, install_work, install_done, j, install_lost)
 	}
+	clear(&app.batch)
+	clear(&app.asking)
 	install_finished(app)
 }
 
 // The Done step once no row installs any more.
-@(private = "file")
 install_finished :: proc(app: ^App) {
-	for r in app.rows { if r.result == .Waiting || r.result == .Installing { return } }
+	if app.step != .Installing { return }
+	for r in app.rows { if result_busy(r.result) { return } }
 	app_step(app, .Finished)
+}
+
+// Starts the failed rows `rows` again, their whole way (src/md/README.md, "A failed install, again"). One look at a time:
+// nothing while one is under way.
+retry :: proc(app: ^App, rows: []int) {
+	if app.look != .Idle { return }
+	clear(&app.batch)
+	for i in rows {
+		r := &app.rows[i]
+		if r.result != .Failed { continue }
+		r.result, r.close, r.phase = result_next(r.result, .Retry), false, {}
+		delete(r.output)
+		r.output = ""
+		append(&app.batch, i)
+	}
+	if len(app.batch) == 0 { return }
+	app_step(app, .Retry)
+	if app.demo { install_go(app); return }
+	look_start(app)
+}
+
+// Every failed row started again.
+retry_failed :: proc(app: ^App) {
+	failed := make([dynamic]int, context.temp_allocator)
+	for r, i in app.rows { if r.result == .Failed { append(&failed, i) } }
+	retry(app, failed[:])
+}
+
+// Whether a retry can start now: a row failed, and no look is under way.
+retry_possible :: proc(app: ^App) -> bool {
+	if app.look != .Idle || (app.step != .Installing && app.step != .Done) { return false }
+	for r in app.rows { if r.result == .Failed { return true } }
+	return false
 }
 
 // A phase starts, told to the window (from the worker): the word is the row and the phase.
@@ -568,14 +792,23 @@ install_work :: proc(data: rawptr) {
 		own_install_work(j)
 		return
 	}
-	defer scratch_remove(p)
-	// Unpack: the file taken out now, or the one of the start checked again
-	why: string
-	if j.scratch == "" {
-		j.scratch, why = take_out(j.bundle, p)
-	} else {
-		why = check_scratch(j.scratch, p)
+	// (a failed install keeps its file: a retry checks it again and uses it)
+	defer if j.ok { scratch_remove(p) }
+	// Close: the copy that runs ends, and the installed file is free
+	if j.close {
+		// (no file taken out: its --quit has nowhere to write its output, and the process is ended instead)
+		why := close_program(j.exe, j.quits && j.scratch != "", j.scratch)
+		free_all(context.temp_allocator)
+		if why != "" { j.output = strings.clone(why); return }
+		phase_post(j, .Unpack)
 	}
+	// Unpack: the file taken out now, or the one taken out before checked again (taken out again when it changed)
+	why: string
+	if j.scratch != "" && check_scratch(j.scratch, p) != "" {
+		delete(j.scratch)
+		j.scratch = ""
+	}
+	if j.scratch == "" { j.scratch, why = take_out(j.bundle, p) }
 	if why != "" { j.output = strings.clone(why); return }
 	phase_post(j, .Install)
 	j.ok, j.output = install_one(j.scratch)
@@ -617,14 +850,18 @@ install_done :: proc(data: rawptr, _: u64) {
 		return
 	}
 	r := &app.rows[j.index]
-	r.result, r.phase = j.ok ? .Installed : .Failed, j.phase
+	r.result, r.phase = result_next(r.result, j.ok ? .Succeed : .Fail), j.phase
 	delete(r.output)
 	r.output, j.output = j.output, ""
 	if j.ok {
 		status_destroy(&r.status)
 		r.status, j.status = j.status, {}
+		row_scratch_set(r, "")
+	} else {
+		// (kept for a retry: install_work checks it again)
+		delete(r.scratch)
+		r.scratch, j.scratch = j.scratch, ""
 	}
-	row_scratch_set(r, "")
 	install_free(j)
 	install_finished(app)
 }
@@ -632,6 +869,7 @@ install_done :: proc(data: rawptr, _: u64) {
 @(private = "file")
 install_free :: proc(j: ^Install_Job) {
 	delete(j.scratch)
+	delete(j.exe)
 	delete(j.output)
 	status_destroy(&j.status)
 }

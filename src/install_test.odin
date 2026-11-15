@@ -41,6 +41,19 @@ the_installed_program_is_read_from_status :: proc(t: ^testing.T) {
 	testing.expect_value(t, none.program, "")
 }
 
+// `running: true` says that a copy runs: the look asks the person before the install (src/md/README.md, "A program that
+// runs"). Only open_read sets `quits`, from the installed copy's own --status.
+@(test)
+a_copy_that_runs_is_read_from_status :: proc(t: ^testing.T) {
+	runs := status_parse(0, "Papier: installed (another copy)\n  program: /p/papier\n  version: 0.23.2\n  running: true\n  quit: yes\n", "0.23.2")
+	defer status_destroy(&runs)
+	testing.expect(t, runs.running, "running: true")
+	testing.expect(t, !runs.quits, "the carried file's quit says nothing of the copy that runs")
+	idle := status_parse(0, "Papier: installed (another copy)\n  program: /p/papier\n  version: 0.23.2\n  running: false\n", "0.23.2")
+	defer status_destroy(&idle)
+	testing.expect(t, !idle.running, "running: false")
+}
+
 @(test)
 a_program_that_cannot_answer_is_unknown_with_its_words :: proc(t: ^testing.T) {
 	s := status_parse(127, "papier: error while loading shared libraries: libwayland-client.so.0\nmore\n", "0.23.2")

@@ -12,11 +12,12 @@ import lucide "gt:lucide"
 import "gt:platform"
 import prefs_page "gt:prefs_page"
 import "gt:ui"
+import update "gt:update"
 
 Action :: enum u8 {
 	// (in the palette's order: each group's actions together)
-	Next, Back, Accept_Install, Select_All, Select_None,
-	Settings, Check_Updates, Install_Atelier, Shortcuts, Quit,
+	Next, Back, Accept_Install, Retry_Failed, Select_All, Select_None,
+	Settings, Check_Updates, Update_Suite, Install_Atelier, Shortcuts, Quit,
 }
 
 ACTIONS := [Action]ui.Command{
@@ -25,8 +26,10 @@ ACTIONS := [Action]ui.Command{
 	.Select_All     = {label = i18n.later("Select every program"), group = i18n.later("Programs"), keys = {{.A, {.Ctrl}}}, icon = lucide.LIST_CHECKS, tags = {"tick", "check", "all"}},
 	.Select_None    = {label = i18n.later("Select no program"), group = i18n.later("Programs"), icon = lucide.SQUARE, tags = {"untick", "clear", "none"}},
 	.Accept_Install = {label = i18n.later("Accept the licences and install"), group = i18n.later("Steps"), icon = lucide.DOWNLOAD, tags = {"install", "licence", "agree"}},
+	.Retry_Failed   = {label = i18n.later("Retry the failed installs"), group = i18n.later("Steps"), icon = lucide.ROTATE_CCW, tags = {"again", "failed", "install"}},
 	.Settings       = {label = i18n.later("Settings"), group = i18n.later("atelier"), keys = {{.Comma, {.Ctrl}}}, icon = lucide.SETTINGS, tags = {"preferences", "options", "configure"}, scope = .Window},
 	.Check_Updates  = {label = i18n.later("Check for updates"), group = i18n.later("atelier"), icon = lucide.REFRESH_CW, tags = {"upgrade", "version", "new"}},
+	.Update_Suite   = {label = i18n.later("Update atelier and the programs"), group = i18n.later("atelier"), icon = lucide.DOWNLOAD, tags = {"upgrade", "suite", "newer"}},
 	.Install_Atelier = {label = i18n.later("Install atelier…"), group = i18n.later("atelier"), icon = lucide.PACKAGE_PLUS, tags = {"setup", "uninstall", "menu", "path"}},
 	.Shortcuts      = {label = i18n.later("Keyboard shortcuts"), group = i18n.later("atelier"), keys = {{.F1, {}}}, icon = lucide.KEYBOARD, tags = {"help", "keys", "hotkeys"}, scope = .Window},
 	.Quit           = {label = i18n.later("Quit atelier"), group = i18n.later("atelier"), keys = {{.Q, {.Ctrl}}}, icon = lucide.POWER, tags = {"exit", "close", "stop"}, scope = .Window},
@@ -45,7 +48,9 @@ action_enabled :: proc(app: ^App, a: Action) -> bool {
 	case .Back:                     return has && (app.step == .Programs || app.step == .Licences)
 	case .Select_All, .Select_None: return has && app.step == .Programs && app.known
 	case .Accept_Install:           return has && app.step == .Licences && licences_ready(app) && chosen_count(app) > 0
+	case .Retry_Failed:             return has && retry_possible(app)
 	case .Check_Updates:            return app.updater != nil
+	case .Update_Suite:             return suite_update_possible(app)
 	case .Install_Atelier:          return !app.demo
 	case .Settings, .Shortcuts, .Quit: return true
 	}
@@ -57,10 +62,12 @@ action_run :: proc(app: ^App, a: Action) {
 	switch a {
 	case .Next, .Accept_Install: app_step(app, .Next)
 	case .Back:                  app_step(app, .Back)
+	case .Retry_Failed:          retry_failed(app)
 	case .Select_All:            select_all(app, true)
 	case .Select_None:           select_all(app, false)
 	case .Settings:              settings_toggle(app)
 	case .Check_Updates:         update_check_asked(app)
+	case .Update_Suite:          suite_update(app)
 	case .Install_Atelier:       prefs_page.install_open(&app.install)
 	// (the sheet adds the toolkit's palette command itself)
 	case .Shortcuts:             ui.shortcuts_sheet_open(&app.sheet, slice.enumerated_array(&ACTIONS), i18n.tr("atelier's keys"))
@@ -109,12 +116,21 @@ Can_Act_Key :: struct {
 	ready:    bool,
 	updater:  bool,
 	results:  u64,   // the rows installed, one bit each
+	failed:   u64,   // the rows failed, one bit each (Retry)
+	look:     Look,
+	phase:    update.Phase,
+	suite:    bool,  // a newer suite is on offer
 }
 
 @(private = "file")
 can_act_key :: proc(app: ^App) -> (k: Can_Act_Key) {
-	k = {made = true, step = app.step, known = app.known, chosen = chosen_count(app), ready = licences_ready(app), updater = app.updater != nil}
-	for _, i in app.rows { if program_openable(app, i) && i < 64 { k.results |= 1 << u64(i) } }
+	k = {made = true, step = app.step, known = app.known, chosen = chosen_count(app), ready = licences_ready(app), updater = app.updater != nil,
+		look = app.look, phase = app.update_phase, suite = app.suite_version != ""}
+	for r, i in app.rows {
+		if i >= 64 { break }
+		if program_openable(app, i) { k.results |= 1 << u64(i) }
+		if r.result == .Failed { k.failed |= 1 << u64(i) }
+	}
 	return
 }
 

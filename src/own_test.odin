@@ -45,11 +45,28 @@ atelier_from_nix_has_no_box :: proc(t: ^testing.T) {
 the_own_stepper_skips_unpack :: proc(t: ^testing.T) {
 	for result in ([]Result{.Installing, .Installed}) {
 		steps := install_steps(Row{result = result, phase = .Install}, own = true)
-		testing.expectf(t, steps[int(Install_Phase.Unpack)].state == .Skipped, "%v: Unpack %v", result, steps[0].state)
+		testing.expectf(t, steps[int(Install_Phase.Unpack)].state == .Skipped, "%v: Unpack %v", result, steps[1].state)
+		testing.expectf(t, steps[int(Install_Phase.Close)].state == .Skipped, "%v: Close %v", result, steps[0].state)
 		testing.expect_value(t, steps[int(Install_Phase.Install)].label, "Copy")
 	}
 	carried := install_steps(Row{result = .Installing, phase = .Install})
-	testing.expectf(t, carried[int(Install_Phase.Unpack)].state == .Done, "a carried program's Unpack is done: %v", carried[0].state)
+	testing.expectf(t, carried[int(Install_Phase.Unpack)].state == .Done, "a carried program's Unpack is done: %v", carried[1].state)
+}
+
+// Close is a phase only for a program whose copy ran and was closed: skipped otherwise, pending until the install starts.
+@(test)
+the_stepper_closes_only_what_ran :: proc(t: ^testing.T) {
+	CLOSE :: int(Install_Phase.Close)
+	ran := install_steps(Row{result = .Installing, phase = .Unpack, close = true})
+	testing.expectf(t, ran[CLOSE].state == .Done, "closed: %v", ran[CLOSE].state)
+	closing := install_steps(Row{result = .Installing, phase = .Close, close = true})
+	testing.expectf(t, closing[CLOSE].state == .Active, "closing: %v", closing[CLOSE].state)
+	failed := install_steps(Row{result = .Failed, phase = .Close, close = true})
+	testing.expectf(t, failed[CLOSE].state == .Failed, "it did not end: %v", failed[CLOSE].state)
+	idle := install_steps(Row{result = .Installed})
+	testing.expectf(t, idle[CLOSE].state == .Skipped, "nothing ran: %v", idle[CLOSE].state)
+	waiting := install_steps(Row{result = .Retrying})
+	testing.expectf(t, waiting[CLOSE].state == .Pending, "not known yet: %v", waiting[CLOSE].state)
 }
 
 // A bundle cannot name a program atelier: the slug is atelier's own row, on the command line too.

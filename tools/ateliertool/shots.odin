@@ -24,7 +24,7 @@ SHOTS_SWAY :: "for_window [app_id=\"atelier\"] floating enable, resize set 900 6
 // Each picture: its file, the step it shows, a text to wait for; then what is done in the window (a script's commands:
 // "key ctrl+,", "click Appearance"), each followed by a text to wait for, before the picture is taken.
 @(private = "file")
-Shot :: struct { name, step, seen: string, then: []Shot_Act }
+Shot :: struct { name, step, seen: string, then: []Shot_Act, flags: []string }
 
 @(private = "file")
 Shot_Act :: struct { command, arg, seen: string }
@@ -38,6 +38,12 @@ SHOTS := [?]Shot{
 	{name = "licences", step = "licences", seen = "MIT License"},
 	{name = "installing", step = "installing", seen = "Copy"},
 	{name = "done", step = "done", seen = "Papier"},
+	// (the question before the installs: two programs of the demo run)
+	{name = "close", step = "checking", seen = "Close them and install"},
+	// (a failed install and its Retry)
+	{name = "retry", step = "done", seen = "Retry the failed ones", flags = {"--demo-case", "failure"}},
+	// (a newer suite on offer: its banner, and the notes of the rows it updates)
+	{name = "update", step = "programs", seen = "Update atelier and the programs", flags = {"--demo-case", "update"}},
 	// (the settings on their Appearance page: atelier's theme first among the cards)
 	{name = "settings", step = "programs", seen = "Papier", then = {{"key", "ctrl+,", "General"}, {"click", "Appearance", "Midnight"}}},
 	{name = "palette", step = "programs", seen = "Papier", then = {{"key", "ctrl+k", "Next step"}}},
@@ -71,7 +77,10 @@ take :: proc(s: Shot, bundle, out: string) -> bool {
 	if why := toolbox.sway_start(&sway, SHOTS_DIR, {config = SHOTS_SWAY, homes = true}); why != "" { fmt.eprintln(why); return false }
 	defer toolbox.sway_stop(&sway)
 	devtools := fmt.tprintf("TOOLKIT_DEVTOOLS=%d", SHOTS_PORT)
-	p, why := toolbox.sway_program(&sway, {PROGRAM, "--demo", "--look=dark", "--bundle", bundle, "--step", s.step}, {devtools}, fmt.tprintf("%s/atelier.log", sway.dir))
+	command := make([dynamic]string, context.temp_allocator)
+	append(&command, PROGRAM, "--demo", "--look=dark", "--bundle", bundle, "--step", s.step)
+	append(&command, ..s.flags)
+	p, why := toolbox.sway_program(&sway, command[:], {devtools}, fmt.tprintf("%s/atelier.log", sway.dir))
 	if why != "" { fmt.eprintln(why); return false }
 	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
 	c: cdp.Client

@@ -45,7 +45,8 @@ A program joins the suite with one line in `tools/ateliertool/programs.odin`. It
 - the single file that its updater downloads, named by `update-<platform>.json` (or `update-<platform>-stable.json`);
 - a Linux archive `<slug>-<version>-linux-x64.tar.gz` whose files beside the program are its licences;
 - `assets/logo_64.png` in its repository at the release's tag;
-- `--install` and `--status` from gui_toolkit's `gt:setup`.
+- `--install` and `--status` from gui_toolkit's `gt:setup`; `Setup_Options.quit` too, so that atelier closes the program
+  cleanly before it installs it (without it, atelier ends the program's process).
 
 ## A release
 
