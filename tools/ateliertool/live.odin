@@ -4,6 +4,7 @@ package ateliertool
 // live: the whole install, for real, in a home of its own (build/live/home: HOME and the XDG folders point there,
 // nothing of the person's is touched). atelier installs every program it carries from this system's bundle, then
 // `list` must say each one is installed at the carried version; a second `install all` must leave them as they are.
+// atelier then installs itself and takes itself away (--install, --status, --uninstall), as every program does.
 
 import "core:fmt"
 import "core:os"
@@ -56,6 +57,12 @@ run_live :: proc(args: []string) -> int {
 	}
 	// (again: each program is current, nothing to do, still a success)
 	if _, code := atelier(env, "install", "all"); code != 0 { fmt.eprintln("live: a second install all failed"); failed = true }
+	// atelier itself, as every program: installed with its menu entry, said installed, then taken away
+	if _, code := atelier(env, "--install"); code != 0 { fmt.eprintln("live: atelier --install failed"); failed = true }
+	if _, code := atelier(env, "--status"); code != 0 { fmt.eprintln("live: atelier --status does not say installed"); failed = true }
+	if !os.exists(fmt.tprintf("%s/.local/share/applications/atelier.desktop", home)) { fmt.eprintln("live: atelier has no menu entry"); failed = true }
+	if _, code := atelier(env, "--uninstall"); code != 0 { fmt.eprintln("live: atelier --uninstall failed"); failed = true }
+	if _, code := atelier(env, "--status"); code != 1 { fmt.eprintln("live: atelier --status does not say uninstalled"); failed = true }
 	if failed { return 1 }
 	fmt.println("live: every program installed, in its own home")
 	return live_window() ? 0 : 1

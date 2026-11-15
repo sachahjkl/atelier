@@ -8,10 +8,13 @@ package atelier
 import "core:fmt"
 import "core:os"
 import "core:strings"
+import config "gt:config"
 import crash "gt:crash"
+import instance "gt:instance"
 import tk_log "gt:log"
+import "gt:platform"
 import process "gt:process"
-import "gt:ui"
+import setup "gt:setup"
 
 APP_NAME :: "atelier"
 APP_VERSION :: "0.1.2"
@@ -21,14 +24,23 @@ USAGE :: `atelier: Froment Software's programs, chosen and installed at once
   atelier                         the window: choose the programs, read their licences, install them
   atelier list                    the programs carried, their version and their state here; no window
   atelier install <slug>... | all those programs installed, without a window (exit 0 when each one installed)
+  atelier --setup                 the window with atelier's own install shown (also in the settings: Installation)
+  atelier --install               install this copy of atelier for you, with the programs it carries: the program, its
+                                  menu entry, its uninstaller; no window
+  atelier --uninstall             take atelier's install away (the programs it installed and your settings stay)
+  atelier --status                what of atelier is installed, and whether it runs (exit 0 installed, 2 to repair,
+                                  1 not installed)
+  atelier prefs                   every preference, its value and what it does
+  atelier set <name> <value>      change a preference (saved)
   atelier --bundle <file>         the programs of another file (a bundle made by ateliertool bundle)
   atelier --demo                  the window with made-up states: nothing is read of this computer, nothing runs
                                   (the pictures of the site); the names, logos and licences are the bundle's
   atelier --step <name>           the window on a step: welcome, programs, licences, installing, done (with --demo:
                                   the pictures; without it, welcome or programs only)
-  atelier --look=dark|light       the window dark or light, whatever the system prefers
+  atelier --look=dark|light       --pref appearance.mode=dark|light: the window dark or light for this run
   atelier --version
   atelier --help
+  --pref name=value               a preference for this run only
 `
 
 // The message of a copy built without a bundle (a development build).
@@ -43,8 +55,8 @@ Run_Options :: struct {
 	bundle:     string,   // the file the programs are read from (the executable unless --bundle)
 	demo:       bool,
 	step:       Step,
-	look:       ui.Theme_Mode,   // the theme's version: the system's, unless --look=dark or --look=light
-	last_crash: string,   // the report of the last run, which crashed ("": it ended cleanly)
+	last_crash: string,           // the report of the last run, which crashed ("": it ended cleanly)
+	owner:      instance.Owner,   // the single instance, held by this process (state None: not held)
 }
 
 run :: proc(all_args: []string) -> int {
@@ -65,24 +77,37 @@ run :: proc(all_args: []string) -> int {
 				opts.step, step_asked = s, true
 			}
 		case "--demo": opts.demo = true
-		case "--look=dark":  opts.look = .Dark
-		case "--look=light": opts.look = .Light
+		// (the standard appearance.mode for this run: a picture's look never reaches the person's file)
+		case "--look=dark":  append(&args, "--pref", "appearance.mode=dark")
+		case "--look=light": append(&args, "--pref", "appearance.mode=light")
 		case: append(&args, a)
 		}
 	}
 	if opts.bundle == "" { opts.bundle = process.executable_path() }
 	// (a real run starts from a step that needs no choice made before it)
 	if step_asked && !opts.demo && opts.step > .Programs { process.console_error("atelier: --step licences, installing and done need --demo\n"); return 2 }
-	verb := len(args) > 0 ? args[0] : ""
+	prefs: config.Prefs
+	rest, problems := prefs_open(&prefs, args[:])
+	defer config.prefs_destroy(&prefs)
+	for p in problems { process.console_error(fmt.tprintf("atelier: %s\n", p)) }
+	// (--install, --uninstall and --status: atelier's own install, no window; --setup is the window's)
+	cmd, words := setup.command_of(rest[:])
+	if setup.command_alone(cmd) { return setup.command_run(cmd, setup_options(), process.console_write) }
+	verb := len(words) > 0 ? words[0] : ""
 	switch verb {
 	case "":
-		return app_run_kept(opts)
+		return app_run_kept(opts, &prefs, cmd == .Setup)
 	case "list":
-		if len(args) > 1 { break }
+		if len(words) > 1 { break }
 		return list_run(opts.bundle)
 	case "install":
-		if len(args) < 2 { break }
-		return install_run(opts.bundle, args[1:])
+		if len(words) < 2 { break }
+		return install_run(opts.bundle, words[1:])
+	case "prefs":
+		return prefs_list(&prefs)
+	case "set":
+		if len(words) != 3 { break }
+		return prefs_set(&prefs, words[1], words[2])
 	case "version", "--version":
 		process.console_write(fmt.tprintf("atelier %s\n", APP_VERSION))
 		return 0
@@ -181,23 +206,55 @@ indent :: proc(text: string) -> string {
 	return s
 }
 
-// The window's run, with its log (gt:log) and its crash reports (gt:crash): a crash leaves a report, which the log of
-// the next start says. Nothing is sent anywhere.
-app_run_kept :: proc(opts: Run_Options) -> int {
+// The window's run, with its log (gt:log) and its crash reports (gt:crash): a crash leaves a report, which the window's
+// bar and the log of the next start say. Nothing is sent anywhere. One atelier at a time: a second start hands its
+// launcher's token to the first, whose window comes to the front, and ends (the demo owns nothing: its pictures run
+// beside a real atelier).
+app_run_kept :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> int {
+	o := opts
+	if !o.demo {
+		message := platform.activation_token_from_env(context.temp_allocator)
+		outcome: instance.Outcome
+		outcome, o.owner = instance.acquire({name = app_instance_name(), wait_ms = 2000}, transmute([]u8)message)
+		if outcome == .Forwarded { return 0 }
+	}
 	logger := tk_log.install({program = APP_NAME, echo = true})
 	code: int
 	{
 		context.logger = logger
 		crash.install({program = APP_NAME, version = APP_VERSION, log_tail = {tk_log.tail, logger.data}})
 		crash.begin_session()
-		o := opts
 		last, crashed := crash.last_report(context.temp_allocator)
 		// (the frames free the temporary memory: the report's path is kept on the heap)
 		if crashed { o.last_crash = strings.clone(last) }
-		code = app_run(o)
+		code = app_run(o, prefs, setup_asked)
 		delete(o.last_crash)
 		crash.end_session()
 	}
 	tk_log.close(logger)
 	return code
+}
+
+// `atelier prefs`: each preference, its value, and what it does.
+@(private = "file")
+prefs_list :: proc(prefs: ^config.Prefs) -> int {
+	for name in config.sorted_names(prefs) {
+		r := config.ref_of(prefs, name)
+		e := config.entry(prefs, r)
+		if e.def.hidden { continue }
+		process.console_write(fmt.tprintf("%s = %s%s\n    %s\n", name, config.value_string(prefs, r), config.is_default(prefs, r) ? "" : "   (changed)", e.def.description))
+	}
+	return 0
+}
+
+// `atelier set <name> <value>`: saved in the user's file (a running atelier reads it at its next start).
+@(private = "file")
+prefs_set :: proc(prefs: ^config.Prefs, name, value: string) -> int {
+	if err := config.set_from_string(prefs, name, value, .User); err != .None {
+		process.console_error(fmt.tprintf("atelier: %s: %s\n", name, config.set_error_text(err)))
+		return 1
+	}
+	path := prefs_file()
+	if !config.save_user(prefs, path) { process.console_error(fmt.tprintf("atelier: %s cannot be written\n", path)); return 1 }
+	return 0
 }

@@ -43,6 +43,21 @@ Each release of atelier carries the latest release of each program. Its notes sa
 | ![Licences](docs/screenshots/licences.png) | ![Install](docs/screenshots/installing.png) |
 | The licences of what you chose | Side by side, each with its steps |
 
+## atelier itself
+
+atelier is one more program of the suite: its own title bar, its settings (Ctrl+,), its command palette (Ctrl+K).
+
+- **It installs itself** with the programs it carries (the settings' Installation page, or `atelier --install`): open
+  it again from the menu to add a program later. On Windows it offers it at its first start.
+- **It updates itself** once installed: a new release brings the new versions of the programs too.
+- **Its settings** are the suite's common ones (theme, language, text, window, updates) and whether the programs start
+  ticked. [docs/configuration.md](docs/configuration.md) lists them.
+
+| | |
+|---|---|
+| ![Settings](docs/screenshots/settings.png) | ![Command palette](docs/screenshots/palette.png) |
+| The settings | The command palette |
+
 ## Download
 
 From the [releases](https://github.com/sachahjkl/atelier/releases/latest):
@@ -59,6 +74,7 @@ From a terminal, without a window:
 ./atelier-*-linux-x64 list                  # the programs it carries, their version, what is installed
 ./atelier-*-linux-x64 install papier classeur
 ./atelier-*-linux-x64 install all
+./atelier-*-linux-x64 --install             # atelier itself, in your profile, with its menu entry
 ```
 
 ## Build

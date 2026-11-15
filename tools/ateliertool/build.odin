@@ -8,6 +8,8 @@ import "core:strings"
 import archive "gt:archive"
 import changelog "gt:changelog"
 import toolbox "gt:toolbox"
+import update "gt:update"
+import atelier_update "../../src/update"
 
 DIST :: "build/dist"
 
@@ -51,8 +53,13 @@ run_check :: proc(args: []string) -> int {
 	return toolbox.check_launcher(p) ? 0 : 1
 }
 
-// `package [version]`: the release build, this platform's bundle written after it, its .sha256 beside it. A version
-// given (a tag, "v" or not) must be the sources'.
+// `package [version]`: the release build, this platform's bundle written after it, its .sha256 beside it, and the
+// update manifest of that whole file (update-<platform>.json and .sig) signed by $UPDATE_SIGNING_KEY. A version given (a
+// tag, "v" or not) must be the sources', and needs the key: the installed ateliers update themselves from the release's
+// manifest. Without a version and without the key, the file is unsigned (a try).
+//
+// The manifest names the whole file, not the program alone (as release.package_ would): the file's name is the one
+// update.expected_file_name gives atelier's product, so an installed atelier that updates itself gets the bundle too.
 run_package :: proc(args: []string) -> int {
 	p := project()
 	version := toolbox.project_version(p)
@@ -61,9 +68,12 @@ run_package :: proc(args: []string) -> int {
 		asked := strings.trim_prefix(args[0], "v")
 		if asked != version { fmt.eprintfln("package: %s asked, the sources say %s", asked, version); return 1 }
 	}
+	signed := os.get_env(toolbox.UPDATE_KEY_ENV, context.temp_allocator) != ""
+	if len(args) > 0 && !signed { fmt.eprintfln("package: a release signs its update manifest: set %s", toolbox.UPDATE_KEY_ENV); return 1 }
 	if run_build({"release"}) != 0 { return 1 }
 	_ = os.make_directory_all(DIST)
-	out := fmt.tprintf("%s/atelier-%s-%s%s", DIST, version, THIS_PLATFORM, ODIN_OS == .Windows ? ".exe" : "")
+	// (the name the updater expects of the release's file: atelier-<version>-<platform>, .exe on Windows)
+	out := fmt.tprintf("%s/%s", DIST, update.expected_file_name(atelier_update.PRODUCT, version, update.PLATFORM, context.temp_allocator))
 	if !make_bundle(THIS_PLATFORM, out, PROGRAM) { return 1 }
 	when ODIN_OS != .Windows {
 		_ = os.chmod(out, {.Read_User, .Write_User, .Execute_User, .Read_Group, .Execute_Group, .Read_Other, .Execute_Other})
@@ -79,7 +89,15 @@ run_package :: proc(args: []string) -> int {
 	manifest, merr := archive.read(&idx, "atelier/bundle.json", allocator = context.temp_allocator)
 	if merr != .None { fmt.eprintfln("package: %s has no manifest", out); return 1 }
 	if os.write_entire_file(fmt.tprintf("%s/atelier-%s-%s.json", DIST, version, THIS_PLATFORM), manifest) != nil { return 1 }
-	fmt.printfln("package: %s", out)
+	update_manifest := fmt.tprintf("%s/%s", DIST, update.manifest_name(update.PLATFORM, "", context.temp_allocator))
+	if signed {
+		if why := toolbox.update_manifest(atelier_update.PRODUCT, out, version, "", update_manifest); why != "" { fmt.eprintfln("package: %s", why); return 1 }
+	} else {
+		// (an earlier signed package's manifest would name another file)
+		_ = os.remove(update_manifest)
+		_ = os.remove(fmt.tprintf("%s.sig", update_manifest))
+	}
+	fmt.printfln("package: %s%s", out, signed ? "" : " (unsigned: no update manifest)")
 	return 0
 }
 

@@ -87,12 +87,13 @@ row_destroy :: proc(r: ^Row) {
 	r^ = {}
 }
 
-// The status came: the box follows the state (state_ticked) when `tick`. A status that comes once the person went past
-// the Programs step changes no box: the licences shown and the installs started are those of the boxes they saw.
-row_status :: proc(r: ^Row, s: Status, tick := true) {
+// The status came: the box follows the state (state_ticked) when `tick`, and stays empty when not `ticked` (the
+// preference programs.ticked off). A status that comes once the person went past the Programs step changes no box: the
+// licences shown and the installs started are those of the boxes they saw.
+row_status :: proc(r: ^Row, s: Status, tick := true, ticked := true) {
 	status_destroy(&r.status)
 	r.status = s
-	if tick { r.ticked = state_ticked(s.state) }
+	if tick { r.ticked = ticked && state_ticked(s.state) }
 }
 
 // The file taken out for the row ("": none any more).

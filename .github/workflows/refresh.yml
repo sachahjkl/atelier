@@ -53,10 +53,12 @@ jobs:
           build/ateliertool ship patch
           echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
 
+  # (the release signs the update manifests: it gets UPDATE_SIGNING_KEY by name)
   release:
     needs: ship
     if: needs.ship.outputs.tag != ''
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.ship.outputs.tag }}
-    secrets: inherit
+    secrets:
+      UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}

@@ -2,7 +2,9 @@ name: Release
 
 # A version tag vX.Y.Z (ateliertool ship makes it) builds atelier and publishes it: on Linux and on Windows, the release
 # build with that system's bundle after it (the programs' latest releases, each checked against its SHA-256), its
-# SHA-256 and its manifest, on a GitHub release whose notes are the changelog's section of that version followed by the
+# SHA-256, its manifest, and the update manifest of that whole file (update-<platform>.json and .sig, signed by the
+# secret UPDATE_SIGNING_KEY: what installed copies update themselves from), on a GitHub release whose notes are the
+# changelog's section of that version followed by the
 # versions carried. The Linux job makes the release; the Windows job adds its files. The tag must be APP_VERSION's
 # (ateliertool package checks). refresh.yml calls it with the tag it shipped; by hand, it builds without publishing.
 on:
@@ -12,6 +14,9 @@ on:
     inputs:
       tag:
         type: string
+        required: true
+    secrets:
+      UPDATE_SIGNING_KEY:
         required: true
   workflow_dispatch:
 
@@ -50,7 +55,11 @@ jobs:
           odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool -vet
           build/ateliertool check
 
+      # (the update manifest of the whole file, signed: the installed ateliers update themselves from it; a release
+      # without the key is refused, a try without a tag is unsigned)
       - name: Package
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: build/ateliertool package $TAG
 
       - uses: actions/upload-artifact@v4
@@ -90,6 +99,8 @@ jobs:
 
       - name: Build, test, package
         shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
           New-Item -ItemType Directory -Force build | Out-Null
           odin build tools/ateliertool -collection:gt=ext/gui_toolkit/src -out:build/ateliertool.exe -vet

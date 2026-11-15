@@ -7,7 +7,9 @@ package atelier
 
 import "core:fmt"
 import "core:math"
+import crash_bar "gt:crash_bar"
 import "gt:draw"
+import prefs_page "gt:prefs_page"
 import "gt:host"
 import i18n "gt:i18n"
 import lucide "gt:lucide"
@@ -24,9 +26,39 @@ TEXT_VIEW_EM :: 12
 view_build :: proc(h: ^host.Host, size: host.Vec2) {
 	app := (^App)(h.user)
 	em := ui.font_size()
-	ui.spacer(ui.px(em * 1.1))
-	header(app, em)
-	ui.spacer(ui.px(em * 0.8))
+	// (the user's themes file: a task looks at it now and then, and reads it when it changed; app_params shows it)
+	if prefs_page.themes_file_poll(&app.themes_file, &h.state) { h.settle = max(h.settle, FRAMES_AFTER_INPUT) }
+	// (the dialogs, the floating views, the docked ones: around the page, and over it)
+	if ui.views_frame(&app.views) {
+		view_keys(app)
+		ui.next({width = ui.fill(), height = ui.fill(), axis = .Y})
+		page := ui.build_box({.Draw_Background}, "###page")
+		if ui.parent(page) { build_page(app, em) }
+		actions_build(app)
+		setup_build(app)
+	}
+}
+
+// The keys of the window: its actions first (the settings, the palette, the sheet, quit: in every page and over a
+// dialog), then the settings' or the steps'.
+@(private = "file")
+view_keys :: proc(app: ^App) {
+	window_keys(app)
+	if ui.views_hold_keys(&app.views) { return }   // (a dialog has the keyboard)
+	if app.settings_open { settings_keys(app); return }
+	actions_keys(app)
+}
+
+@(private = "file")
+build_page :: proc(app: ^App, em: f32) {
+	title_bar(app, em)
+	ui.hline(ui.fill())
+	crash_bar.bar(&app.crash_bar, {name = "atelier", version = APP_VERSION, repository = "sachahjkl/atelier"})
+	if app.settings_open {
+		settings_build(app)
+		return
+	}
+	ui.spacer(ui.px(em * 0.9))
 	ui.next({width = ui.fill(), height = ui.fill()})
 	if ui.scroll_y("###body") {
 		if app.bundle == nil {
@@ -48,55 +80,112 @@ view_build :: proc(h: ^host.Host, size: host.Vec2) {
 }
 
 ////////////////////////////////
-// The header
+// The title bar
 
-// atelier's logo, its name and line, and the steps (the one shown lit).
+// The window's own title bar (the system's when window.system_title: then the system draws its buttons): atelier's mark
+// and name, the steps (the one shown lit), then the update's badge, the palette, the settings and the window's
+// buttons. Its empty parts move the window. In the settings, the steps give way to the way back.
 @(private = "file")
-header :: proc(app: ^App, em: f32) {
-	if panel(em, "###head", .X) {
-		ui.spacer(ui.px(em * 0.9))
+title_bar :: proc(app: ^App, em: f32) {
+	ui.next({width = ui.fill(), height = ui.px(math.round(em * 2.6))})
+	if ui.title_bar("###titlebar") {
+		ui.spacer(ui.px(em * 0.7))
 		if app.logo_size != {} {
-			image(app.logo, app.logo_size, math.round(em * 3), "###logo")
-			ui.spacer(ui.px(em * 0.8))
+			image(app.logo, app.logo_size, math.round(em * 1.6), "###logo")
+			ui.spacer(ui.px(em * 0.5))
 		}
-		ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
-		if ui.column(id = "###words") {
-			ui.spacer(ui.px(em * 0.6))
-			ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.9)), font_size = math.round(em * 1.45), text_pad = 0})
-			ui.label("atelier###name")
+		ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, font_size = math.round(em * 1.1)})
+		ui.label("atelier###name")
+		ui.spacer(ui.fill())
+		if app.settings_open {
 			if ui.tags("weak") {
-				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), font_size = math.round(em * 0.9), text_pad = 0})
-				ui.label(fmt.tprintf("%s###line", i18n.tr("The working man's tools · by Froment Software")))
+				ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0})
+				ui.label(fmt.tprintf("%s###settings_title", i18n.tr("Settings")))
 			}
-			ui.spacer(ui.px(em * 0.6))
+		} else if app.bundle != nil {
+			steps(app, em)
 		}
-		if app.bundle != nil { steps(app, em) }
-		ui.spacer(ui.px(em * 0.9))
+		ui.spacer(ui.fill())
+		// (an update to install, coming, or in place: a button before the others; nothing otherwise)
+		if app.updater != nil {
+			ui.next({height = ui.px(math.round(em * 1.9))})
+			if prefs_page.update_badge(app.updater, proc(user: rawptr) { app_restart((^App)(user)) }, app) != nil { ui.spacer(ui.px(em * 0.4)) }
+		}
+		if app.settings_open {
+			if bar_button("###back", lucide.ARROW_LEFT, ui.key_tip(i18n.tr("Back to the steps"), {.Escape, {}}), em) { app.settings_open = false }
+		} else {
+			if bar_button("###palette", lucide.COMMAND, ui.command_tip(ui.palette_command()), em) { palette_show(app) }
+			ui.spacer(ui.px(em * 0.2))
+			if bar_button("###settings", lucide.SETTINGS, action_tip(.Settings), em) { settings_toggle(app) }
+		}
+		ui.spacer(ui.px(em * 0.5))
+		// (nothing when the system draws the title bar: it has its own buttons)
+		if !platform.is_integrated_title(app.main.win) { ui.spacer(ui.px(em * 0.2)) }
+		ui.window_buttons()
 	}
 }
 
-// Programs · Licences · Install: where the person is.
+// A small button of the title bar: a Lucide icon, its tooltip says what it does.
+@(private = "file")
+bar_button :: proc(id, glyph, tip: string, em: f32) -> bool {
+	side := math.round(em * 2)
+	ui.next({width = ui.px(side), height = ui.px(side), radius = math.round(em * 0.4)})
+	return ui.button(id, icon = glyph, o = {tip = tip, icon_font = ui.lucide_icons(), quiet = true}).clicked
+}
+
+// Programs · Licences · Install: where the person is, each with its icon.
 @(private = "file")
 steps :: proc(app: ^App, em: f32) {
-	Shown :: struct { words: string, steps: bit_set[Step] }
+	Shown :: struct { words, glyph: string, steps: bit_set[Step] }
 	shown := [3]Shown{
-		{i18n.tr("Programs"), {.Programs}},
-		{i18n.tr("Licences"), {.Licences}},
-		{i18n.tr("Install"), {.Installing, .Done}},
+		{i18n.tr("Programs"), lucide.PACKAGE, {.Programs}},
+		{i18n.tr("Licences"), lucide.SCALE, {.Licences}},
+		{i18n.tr("Install"), lucide.DOWNLOAD, {.Installing, .Done}},
 	}
-	ui.next({width = ui.children_sum(), height = ui.px(math.round(em * 1.6)), axis = .X, cross = .Center})
+	ui.next({width = ui.children_sum(), height = ui.pct(1), axis = .X, cross = .Center})
 	if ui.row(.Center, id = "###steps") {
 		for s, i in shown {
 			if i > 0 {
 				if ui.tags("weak") {
-					ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = math.round(em * 0.45)})
+					ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = math.round(em * 0.55)})
 					ui.label(fmt.tprintf("·###dot%d", i))
 				}
 			}
 			lit := app.step in s.steps
-			ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, fg = lit ? ui.color("accent") : nil})
-			if ui.tags(lit ? "" : "weak") { ui.label(fmt.tprintf("%s###step%d", s.words, i)) }
+			if ui.tags(lit ? "" : "weak") {
+				tone := lit ? ui.color("accent") : ui.color("text")
+				small_icon(em, s.glyph, tone)
+				ui.spacer(ui.px(math.round(em * 0.3)))
+				ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, fg = tone})
+				ui.label(fmt.tprintf("%s###step%d", s.words, i))
+			}
 		}
+	}
+}
+
+// A Lucide icon of the text's size, in `fg` (a tone's colour: ui.color("text") under a tag is that tag's text), as tall
+// as a line of text: beside a paragraph it sits on its first line.
+small_icon :: proc(em: f32, glyph: string, fg: ui.Color) {
+	ui.next({width = ui.px(math.round(em * 1.2)), height = ui.px(math.round(em * ICON_LINE_EM)), font = ui.lucide_icons(), text_align = .Center, fg = fg, text_pad = 0})
+	ui.build_box({.Draw_Text, .No_Text_Trunc}, fmt.tprintf("%s###ico%d", glyph, ui.parent_box().child_count))
+}
+
+// The height of a line of text, in font sizes: the icons beside the words have it.
+ICON_LINE_EM :: 1.45
+
+// A paragraph with an icon before its words, in the tone `tone` ("": the text's), inside a panel's margins.
+@(private = "file")
+icon_paragraph :: proc(em: f32, id, glyph, text, tone: string) {
+	line_next()
+	if ui.row(id = fmt.tprintf("%s_row", id)) {
+		ui.spacer(ui.px(em * 0.9))
+		if ui.tags(tone) {
+			small_icon(em, glyph, ui.color("text"))
+			ui.spacer(ui.px(math.round(em * 0.45)))
+			ui.next({width = ui.fill(), text_pad = 0})
+			ui.paragraph(fmt.tprintf("%s%s", text, id))
+		}
+		ui.spacer(ui.px(em * 0.9))
 	}
 }
 
@@ -108,7 +197,7 @@ no_bundle_view :: proc(app: ^App, em: f32) {
 	if panel(em, "###nobundle") {
 		ui.spacer(ui.px(em * 0.7))
 		text := app.bundle_error == .Bad_Manifest ? i18n.tr("The list of programs this copy of atelier carries cannot be read: download atelier again.") : i18n.tr("This copy of atelier carries no programs: build it with ateliertool package.")
-		padded_paragraph(em, "###nobundle_text", text, "bad")
+		icon_paragraph(em, "###nobundle_text", lucide.ALERT_TRIANGLE, text, "bad")
 		ui.spacer(ui.px(em * 0.7))
 	}
 }
@@ -116,14 +205,34 @@ no_bundle_view :: proc(app: ^App, em: f32) {
 @(private = "file")
 welcome_view :: proc(app: ^App, em: f32) {
 	if panel(em, "###welcome") {
+		ui.spacer(ui.px(em * 0.9))
+		// atelier's mark, its name and its line: what this window is
+		line_next()
+		if ui.row(.Center, id = "###head") {
+			ui.spacer(ui.px(em * 0.9))
+			if app.logo_size != {} {
+				image(app.logo, app.logo_size, math.round(em * 3), "###logo")
+				ui.spacer(ui.px(em * 0.8))
+			}
+			ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
+			if ui.column(id = "###words") {
+				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.9)), font_size = math.round(em * 1.45), text_pad = 0})
+				ui.label("atelier###name")
+				if ui.tags("weak") {
+					ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), font_size = math.round(em * 0.9), text_pad = 0})
+					ui.label(fmt.tprintf("%s###line", i18n.tr("The working man's tools · by Froment Software")))
+				}
+			}
+			ui.spacer(ui.px(em * 0.9))
+		}
 		ui.spacer(ui.px(em * 0.8))
-		padded_paragraph(em, "###what", i18n.tr("atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed."), "")
-		ui.spacer(ui.px(em * 0.5))
+		icon_paragraph(em, "###what", lucide.TOOLBOX, i18n.tr("atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed."), "")
+		ui.spacer(ui.px(em * 0.4))
 		n := len(app.bundle.programs)
-		padded_paragraph(em, "###count", fmt.tprintf(i18n.tr(n, "This copy carries %d program, made on %s.", "This copy carries %d programs, made on %s."), n, app.bundle.made), "weak")
-		ui.spacer(ui.px(em * 0.5))
-		padded_paragraph(em, "###after", i18n.tr("Each program updates itself once it is installed."), "weak")
-		ui.spacer(ui.px(em * 0.8))
+		icon_paragraph(em, "###count", lucide.PACKAGE, fmt.tprintf(i18n.tr(n, "This copy carries %d program, made on %s.", "This copy carries %d programs, made on %s."), n, app.bundle.made), "weak")
+		ui.spacer(ui.px(em * 0.4))
+		icon_paragraph(em, "###after", lucide.REFRESH_CW, i18n.tr("Each program updates itself once it is installed."), "weak")
+		ui.spacer(ui.px(em * 0.9))
 	}
 	ui.spacer(ui.px(em * 0.7))
 	for p, i in app.bundle.programs {
@@ -151,6 +260,8 @@ programs_view :: proc(app: ^App, em: f32) {
 	if ui.row(.Center, id = "###select") {
 		ui.spacer(ui.px(em * MARGIN_EM))
 		if ui.tags("weak") {
+			small_icon(em, lucide.LIST_CHECKS, ui.color("text"))
+			ui.spacer(ui.px(math.round(em * 0.45)))
 			ui.next({width = ui.fill(), height = ui.px(math.round(em * 2)), text_pad = 0})
 			ui.label(fmt.tprintf("%s###choose", i18n.tr("Choose the programs to install.")))
 		}
@@ -172,7 +283,7 @@ programs_view :: proc(app: ^App, em: f32) {
 nixos_notice :: proc(app: ^App, em: f32) {
 	if panel(em, "###nixos") {
 		ui.spacer(ui.px(em * 0.6))
-		padded_paragraph(em, "###nixos_text", i18n.tr("This system is NixOS: Nix is the better install, it updates the programs with the system. Add each one with Nix, or install them from here:"), "warn")
+		icon_paragraph(em, "###nixos_text", lucide.SNOWFLAKE, i18n.tr("This system is NixOS: Nix is the better install, it updates the programs with the system. Add each one with Nix, or install them from here:"), "warn")
 		ui.spacer(ui.px(em * 0.3))
 		for p, i in app.bundle.programs {
 			line := nix_line(p)
@@ -241,11 +352,16 @@ program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
 // The state of a program in a few words, coloured by what it means.
 @(private = "file")
 state_badge :: proc(app: ^App, r: Row, em: f32) {
-	if !app.known || r.status.state == .Reading {
+	reading := !app.known || r.status.state == .Reading
+	if reading {
 		ui.spinner("###reading", math.round(em * 1.1))
 		ui.spacer(ui.px(em * 0.4))
 	}
 	if ui.tags(state_tone(r.status.state)) {
+		if !reading {
+			small_icon(em, state_glyph(r.status.state), ui.color("text"))
+			ui.spacer(ui.px(math.round(em * 0.3)))
+		}
 		ui.next({width = ui.text_size(), height = ui.px(math.round(em * 2)), text_pad = 0})
 		// (the reason of Unknown is under the tagline, where it has room)
 		words := r.status.state == .Unknown ? i18n.tr("Cannot be read here") : state_words(r.status)
@@ -259,6 +375,8 @@ licences_view :: proc(app: ^App, em: f32) {
 	if ui.row(.Center, id = "###licences_intro") {
 		ui.spacer(ui.px(em * MARGIN_EM))
 		if ui.tags("weak") {
+			small_icon(em, lucide.SCALE, ui.color("text"))
+			ui.spacer(ui.px(math.round(em * 0.45)))
 			ui.next({width = ui.fill(), text_pad = 0})
 			ui.paragraph(fmt.tprintf("%s###text", i18n.tr("Read the licence of each program chosen, and of what it includes. Accept them to install the programs.")), selectable = false)
 		}
@@ -287,7 +405,7 @@ licences_view :: proc(app: ^App, em: f32) {
 			line_next()
 			if ui.row(id = fmt.tprintf("###licences_none_%s", p.slug)) {
 				ui.spacer(ui.px(em * MARGIN_EM))
-				padded_paragraph(em, "###text", i18n.tr("This program carries no licence file."), "warn")
+				icon_paragraph(em, "###text", lucide.ALERT_TRIANGLE, i18n.tr("This program carries no licence file."), "warn")
 			}
 			continue
 		}
@@ -298,6 +416,8 @@ licences_view :: proc(app: ^App, em: f32) {
 			if ui.row(.Center, id = fmt.tprintf("###licence_title_%s_%d", p.slug, k)) {
 				ui.spacer(ui.px(em * MARGIN_EM))
 				if ui.tags("weak") {
+					small_icon(em, lucide.FILE_TEXT, ui.color("text"))
+					ui.spacer(ui.px(math.round(em * 0.35)))
 					ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.6)), text_pad = 0})
 					ui.label(fmt.tprintf("%s###title", l.title))
 				}
@@ -315,6 +435,8 @@ installing_view :: proc(app: ^App, em: f32) {
 		line_next()
 		if ui.row(.Center, id = "###count_row") {
 			ui.spacer(ui.px(em * 0.9))
+			small_icon(em, lucide.DOWNLOAD, ui.color("text"))
+			ui.spacer(ui.px(math.round(em * 0.45)))
 			ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.8)), text_pad = 0})
 			ui.label(fmt.tprintf("%s###count", fmt.tprintf(i18n.tr("Installing: %d of %d done"), done, of)))
 			ui.spacer(ui.px(em * 0.9))
@@ -327,7 +449,7 @@ installing_view :: proc(app: ^App, em: f32) {
 			ui.spacer(ui.px(em * 0.9))
 		}
 		ui.spacer(ui.px(em * 0.5))
-		padded_paragraph(em, "###note", i18n.tr("The programs install themselves side by side. If you close the window, those under way end their install first."), "weak")
+		icon_paragraph(em, "###note", lucide.INFO, i18n.tr("The programs install themselves side by side. If you close the window, those under way end their install first."), "weak")
 		ui.spacer(ui.px(em * 0.7))
 	}
 	for p, i in app.bundle.programs {
@@ -426,9 +548,9 @@ done_view :: proc(app: ^App, em: f32) {
 	if panel(em, "###summary") {
 		ui.spacer(ui.px(em * 0.7))
 		text := failed == 0 ? fmt.tprintf(i18n.tr(installed, "Done: %d program is installed.", "Done: %d programs are installed."), installed) : fmt.tprintf(i18n.tr("%d installed, %d failed."), installed, failed)
-		padded_paragraph(em, "###summary_text", text, failed == 0 ? "good" : "bad")
+		icon_paragraph(em, "###summary_text", failed == 0 ? lucide.CHECK_CIRCLE : lucide.ALERT_CIRCLE, text, failed == 0 ? "good" : "bad")
 		ui.spacer(ui.px(em * 0.3))
-		padded_paragraph(em, "###menu", i18n.tr("Each one is in the applications menu, and updates itself."), "weak")
+		icon_paragraph(em, "###menu", lucide.INFO, i18n.tr("Each one is in the applications menu, and updates itself."), "weak")
 		ui.spacer(ui.px(em * 0.7))
 	}
 	for p, i in app.bundle.programs {
@@ -448,8 +570,14 @@ done_view :: proc(app: ^App, em: f32) {
 					ui.label(fmt.tprintf("%s %s###name", p.name, p.version))
 					if r.result == .Installed && r.status.program != "" {
 						if ui.tags("weak") {
-							ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.86)})
-							ui.label(fmt.tprintf("%s###where", r.status.program))
+							ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), axis = .X, cross = .Center})
+							if ui.row(.Center, id = "###where_row") {
+								ui.next({width = ui.px(math.round(em * 1.1)), height = ui.pct(1), font = ui.lucide_icons(), text_align = .Center, font_size = math.round(em * 0.86), text_pad = 0})
+								ui.build_box({.Draw_Text, .No_Text_Trunc}, fmt.tprintf("%s###where_icon", lucide.FOLDER))
+								ui.spacer(ui.px(math.round(em * 0.3)))
+								ui.next({width = ui.fill(), height = ui.pct(1), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.86)})
+								ui.label(fmt.tprintf("%s###where", r.status.program))
+							}
 						}
 					}
 					ui.spacer(ui.px(em * 0.5))
@@ -648,6 +776,21 @@ state_words :: proc(s: Status) -> string {
 	case .Newer:   return fmt.tprintf(i18n.tr("%s installed"), s.installed)
 	case .Repair:  return i18n.tr("Repair")
 	case .Unknown: return s.reason != "" ? fmt.tprintf(i18n.tr("Cannot be read here: %s"), s.reason) : i18n.tr("Cannot be read here")
+	}
+	return ""
+}
+
+// The icon before a state's words.
+@(private = "file")
+state_glyph :: proc(s: State) -> string {
+	switch s {
+	case .Reading: return lucide.LOADER
+	case .Absent:  return lucide.CIRCLE_DASHED
+	case .Older:   return lucide.ARROW_UP_CIRCLE
+	case .Current: return lucide.CHECK_CIRCLE
+	case .Newer:   return lucide.CHECK
+	case .Repair:  return lucide.WRENCH
+	case .Unknown: return lucide.ALERT_TRIANGLE
 	}
 	return ""
 }

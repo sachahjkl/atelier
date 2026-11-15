@@ -9,8 +9,6 @@
 
 - **Uninstall from atelier**: a program's row offers to remove it (`<program> --uninstall`). The person manages the whole
   suite from one window.
-- **atelier installed too**: atelier installs itself beside the programs, so the person opens it again from the menu to
-  add a program later.
 
 ## Later
 

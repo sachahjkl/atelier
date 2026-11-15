@@ -10,6 +10,7 @@ package ateliertool
 import changelog "gt:changelog"
 import release "gt:release"
 import toolbox "gt:toolbox"
+import atelier_update "../../src/update"
 
 REPOSITORY :: "https://github.com/sachahjkl/atelier"
 when ODIN_OS == .Windows {
@@ -43,7 +44,8 @@ commands :: proc() -> []toolbox.Command {
 		toolbox.Command{name = "test", usage = ": the tests of the program", run = run_test},
 		toolbox.Command{name = "check", usage = ": the changelog and the roadmap, the scopes, the French catalogue, odin check for this system and Windows and of this tool (-vet), the tests, a release build", run = run_check},
 		toolbox.Command{name = "bundle", usage = "[linux-x64|windows-x64] [--out file]: the programs' latest releases, checked, in build/bundle-<platform>.zip", run = run_bundle},
-		toolbox.Command{name = "package", usage = "[version]: build/dist/atelier-<version>-<platform>: the release build with this platform's bundle after it, and its .sha256", run = run_package},
+		toolbox.Command{name = "package", usage = "[version]: build/dist/atelier-<version>-<platform>: the release build with this platform's bundle after it, its .sha256, and its update manifest signed by $UPDATE_SIGNING_KEY (a release, with its version, needs the key)", run = run_package},
+		toolbox.Command{name = "update", usage = "keygen <file> | pubkey | manifest <file> <version> - <out> | verify <manifest> -: atelier's update key and manifests", run = proc(args: []string) -> int { return toolbox.update_command(atelier_update.PRODUCT, args) }},
 		toolbox.Command{name = "behind", usage = "[--fragment]: whether the latest atelier carries each program's latest release (exit 3 when not; --fragment writes the changelog's fragment)", run = run_behind},
 		r[1], r[2],
 		toolbox.logo_command(logo()),

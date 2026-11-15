@@ -1,6 +1,54 @@
 # The texts in fr (docs/i18n.md). Written by the i18n command: a translation left empty is the English.
 language fr
 
+en Next step
+fr Étape suivante
+
+en Steps
+fr Étapes
+
+en Previous step
+fr Étape précédente
+
+en Select every program
+fr Cocher tous les programmes
+
+en Programs
+fr Programmes
+
+en Select no program
+fr Ne cocher aucun programme
+
+en Accept the licences and install
+fr Accepter les licences et installer
+
+en Settings
+fr Réglages
+
+en atelier
+fr atelier
+
+en Check for updates
+fr Rechercher des mises à jour
+
+en Install atelier…
+fr Installer atelier…
+
+en Keyboard shortcuts
+fr Raccourcis clavier
+
+en Quit atelier
+fr Quitter atelier
+
+en atelier's keys
+fr Les touches d'atelier
+
+en Open %s
+fr Ouvrir %s
+
+en The preferences cannot be written
+fr Les réglages ne peuvent pas être enregistrés
+
 en This licence cannot be read from the bundle.
 fr Cette licence ne peut pas être lue dans le paquet.
 
@@ -40,11 +88,44 @@ fr le fichier extrait ne peut pas être lu
 en the file taken out changed: its size or its SHA-256 differs
 fr le fichier extrait a changé : sa taille ou son SHA-256 diffère
 
-en The working man's tools · by Froment Software
-fr Les outils de l'artisan · par Froment Software
+en Ticked at first
+fr Cochés d'emblée
 
-en Programs
-fr Programmes
+en Tick the programs that are not installed, older or to repair as soon as their state is read. Off: every box starts empty.
+fr Cocher les programmes absents, plus anciens ou à réparer dès que leur état est lu. Désactivé : toutes les cases sont vides au départ.
+
+en General
+fr Général
+
+en Appearance
+fr Apparence
+
+en Window
+fr Fenêtre
+
+en Scrolling
+fr Défilement
+
+en Input
+fr Saisie
+
+en Delays and menus
+fr Délais et menus
+
+en Updates
+fr Mises à jour
+
+en Rendering
+fr Rendu
+
+en This desktop draws no title bar for atelier's window (GNOME): atelier keeps its own.
+fr Ce bureau ne dessine pas de barre de titre pour la fenêtre d'atelier (GNOME) : atelier garde la sienne.
+
+en atelier in the terminal (on the PATH)
+fr atelier dans le terminal (sur le PATH)
+
+en Back to the steps
+fr Retour aux étapes
 
 en Licences
 fr Licences
@@ -57,6 +138,9 @@ fr La liste des programmes de cette copie d'atelier ne peut pas être lue : tél
 
 en This copy of atelier carries no programs: build it with ateliertool package.
 fr Cette copie d'atelier ne contient aucun programme : construisez-la avec ateliertool package.
+
+en The working man's tools · by Froment Software
+fr Les outils de l'artisan · par Froment Software
 
 en atelier installs Froment Software's programs in one go. Choose the programs, read their licences, and each one installs itself, for you alone: no administrator is needed.
 fr atelier installe les programmes de Froment Software en une fois. Choisissez les programmes, lisez leurs licences, et chacun s'installe de lui-même, pour vous seul : aucun administrateur n'est nécessaire.

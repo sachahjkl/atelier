@@ -23,6 +23,21 @@ program on it:
 `ateliertool package` writes the release's file: `build/dist/atelier-<version>-<platform>`, the release build with the
 bundle after it, and its `.sha256`. A Windows file is made on Windows.
 
+With `UPDATE_SIGNING_KEY` set, `package` also writes `build/dist/update-<platform>.json` and its `.sig`: the update
+manifest of that whole file, which the installed ateliers read. `package <version>` (a release) refuses to run without
+the key. The key pair:
+
+    ateliertool update keygen <file outside the repository>   # prints the public key: src/update/product.odin
+    ateliertool update pubkey                                 # the public key of $UPDATE_SIGNING_KEY
+    ateliertool update verify build/dist/update-linux-x64.json -
+
+The private key (the file's text) is the repository's secret `UPDATE_SIGNING_KEY`.
+
+## The window during development
+
+`build/atelier --bundle build/bundle-linux-x64.zip` is a full atelier: its settings are in `$XDG_CONFIG_HOME/atelier`,
+and one atelier runs at a time (a debug build has its own instance). `--demo` owns no instance and writes no settings.
+
 ## A program in the suite
 
 A program joins the suite with one line in `tools/ateliertool/programs.odin`. Its release must have:
@@ -40,5 +55,5 @@ with both files.
 
 ## The pictures
 
-`ateliertool shots` starts atelier with `--demo` on each step in a sway nobody sees, and writes `docs/screenshots/` and
-`site/img/`.
+`ateliertool shots` starts atelier with `--demo` on each step in a sway nobody sees, then opens its settings and its
+command palette, and writes `docs/screenshots/` and `site/img/`.
