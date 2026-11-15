@@ -14,7 +14,7 @@ import process "gt:process"
 import "gt:ui"
 
 APP_NAME :: "atelier"
-APP_VERSION :: "0.1.1"
+APP_VERSION :: "0.1.2"
 
 USAGE :: `atelier: Froment Software's programs, chosen and installed at once
 
