@@ -5,6 +5,14 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-15 17:21
+
+### Changed
+- **The install's progress and its result are one screen**: a failed program shows why, and its Retry, on its own line. Its "Details" show the program's whole output and its exit code (a Windows code in hex, such as 0xC0000135 for a missing DLL), with a Copy button. Each failure is also written to atelier's log, and `atelier install` prints the exit code of a failed install.
+
+### Fixed
+- **Windows programs installed whole**: atelier now carries and installs what each Windows release puts beside its program (the toolkit's gt_webp.dll, the `<program>.com` console launcher), so WebP images load and the program's command works in a terminal.
+
 ## [0.4.0] - 2026-11-15 15:44
 
 ### Added
@@ -63,6 +71,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.5.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.5.0
 [0.4.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.4.0
 [0.3.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.3.1
 [0.3.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.3.0
