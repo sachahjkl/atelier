@@ -1,0 +1,2 @@
+name=atelier
+description=The working man's tools: Froment Software's desktop programs in one download, chosen and installed at once.
