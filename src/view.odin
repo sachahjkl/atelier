@@ -2,7 +2,8 @@ package atelier
 
 // The window's build: a header (atelier's logo, its name, the steps), the step's view in a scroll view, the step's
 // buttons under it. One level of framing (src/md/README.md, "The layout"): a group is one card, a list is one card of
-// rows split by hairlines, and nothing framed sits in a card. Every gap and inset is a step of the spacing scale below.
+// rows split by hairlines, and nothing framed sits in a card. Every gap and inset is a step of the toolkit's spacing
+// scale, through its role (ui.space(ui.CARD_PAD)...); the cards, the list cards and the wells are the toolkit's.
 // Buttons have a Lucide glyph and an intent (Primary goes on, Success installs, Neutral closes), as in the programs
 // atelier installs. A build reads the App and nothing else: what it shows was read by a worker.
 
@@ -20,56 +21,14 @@ import "gt:render"
 import timefmt "gt:timefmt"
 import "gt:ui"
 
-////////////////////////////////
-// The spacing scale
-
-// The steps of the scale, in font sizes. A gap or an inset of atelier's views is one of them, through its role below:
-// scattered values (0.3, 0.45, 0.6, 0.9) made every place look a little off from the next one.
-SPACE_1 :: f32(0.25)
-SPACE_2 :: f32(0.5)
-SPACE_3 :: f32(0.75)
-SPACE_4 :: f32(1)
-SPACE_6 :: f32(1.5)
-
-// The roles. Each role has one step, the same in every view.
-PAGE_MARGIN :: SPACE_6   // the page's left, right and bottom edges: cards and the bottom buttons line up on it
-PAGE_TOP    :: SPACE_4   // between the title bar and the page
-CARD_PAD    :: SPACE_4   // a card's inset, the same on its four sides
-ROW_PAD     :: SPACE_3   // a list row's inset above and below (its sides: CARD_PAD); a list card adds SPACE_1, so
-                         // its first and last rows sit CARD_PAD from its edges too
-GROUP_GAP   :: SPACE_6   // between two groups of the page (a notice, a list, a licence's program)
-ITEM_GAP    :: SPACE_4   // between two items of one group (the licences of one program)
-LINE_GAP    :: SPACE_2   // between two lines of a group, and between a group's head and its card
-ICON_GAP    :: SPACE_2   // between an icon (or a mark, a box) and its words
-CONTROL_GAP :: SPACE_2   // between two buttons, and between words and their button
-TOOL_GAP    :: SPACE_1   // between two icon buttons of the title bar
-INNER_PAD   :: SPACE_3   // inside a well: a text's inset from its tinted edge
-
-// The roundness of a card, of a well, in font sizes.
-CARD_RADIUS :: f32(0.5)
+// The roundness of a well, in font sizes: the toolkit's cards' (ui.card), so a well on the page matches them.
+WELL_RADIUS_EM :: f32(0.6)
 
 // The side of a program's mark in a row, in font sizes.
 MARK_EM :: f32(2)
 
 // The height of a licence's text, in font sizes: what does not fit scrolls.
 TEXT_VIEW_EM :: 12
-
-// A gap of `step` along the parent's axis, on whole pixels.
-@(private = "file")
-space :: proc(step: f32) {
-	ui.spacer(ui.px(math.round(ui.font_size() * step)))
-}
-
-// The room the body's scroll bar takes at its right, from its last layout (px; 0 while the body fits).
-@(private = "file")
-body_bar_room: f32
-
-// The page's margin at the right of a line of the body: the scroll bar sits in it, so the cards end where the bottom
-// buttons end whether the body scrolls or not.
-@(private = "file")
-page_end :: proc() {
-	ui.spacer(ui.px(max(0, math.round(ui.font_size() * PAGE_MARGIN) - body_bar_room)))
-}
 
 view_build :: proc(h: ^host.Host, size: host.Vec2) {
 	app := (^App)(h.user)
@@ -110,26 +69,36 @@ build_page :: proc(app: ^App, em: f32) {
 	ui.next({width = ui.fill(), height = ui.fill()})
 	if ui.scroll_y("###body") {
 		body := ui.parent_box()
-		body_bar_room = ui.scrollbar_room(body, .X)
+		bar_room := ui.scrollbar_room(body, .X)
 		// (the page's top inset is in the scroll view: at rest it is empty, so the fade at the edges where content hides
-		// covers nothing until the body scrolls)
-		ui.scroll_fades(body, .Y, math.round(em * PAGE_TOP))
-		space(PAGE_TOP)
-		if app.bundle == nil {
-			no_bundle_view(app, em)
-		} else {
-			switch app.step {
-			case .Welcome:    welcome_view(app, em)
-			case .Programs:   programs_view(app, em)
-			case .Licences, .Checking: licences_view(app, em)
-			case .Installing: installing_view(app, em)
+		// covers nothing until the body scrolls. Under the window's bar it is no role: the toolkit's bare step)
+		ui.scroll_fades(body, .Y, math.round(em * ui.SPACE_4))
+		ui.space(ui.SPACE_4)
+		line_next()
+		if ui.row(id = "###margins") {
+			ui.space(ui.PAGE_MARGIN)
+			ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
+			if ui.column(id = "###step") {
+				if app.bundle == nil {
+					no_bundle_view(app, em)
+				} else {
+					switch app.step {
+					case .Welcome:    welcome_view(app, em)
+					case .Programs:   programs_view(app, em)
+					case .Licences, .Checking: licences_view(app, em)
+					case .Installing: installing_view(app, em)
+					}
+				}
 			}
+			// (the scroll bar sits in the right margin, so the cards end where the bottom buttons end whether the body
+			// scrolls or not; a hand-made gap, as it is the margin less the bar)
+			ui.spacer(ui.px(max(0, math.round(em * ui.PAGE_MARGIN) - bar_room)))
 		}
 		// (the last card's edge never touches the scroll view's)
-		space(PAGE_TOP)
+		ui.space(ui.SPACE_4)
 	}
 	buttons(app)
-	space(PAGE_MARGIN)
+	ui.space(ui.PAGE_MARGIN)
 }
 
 ////////////////////////////////
@@ -142,10 +111,10 @@ build_page :: proc(app: ^App, em: f32) {
 title_bar :: proc(app: ^App, em: f32) {
 	ui.next({width = ui.fill(), height = ui.px(math.round(em * 2.6))})
 	if ui.title_bar("###titlebar") {
-		space(SPACE_3)
+		ui.space(ui.SPACE_3)
 		if app.logo_size != {} {
 			image(app.logo, app.logo_size, math.round(em * 1.6), "###logo")
-			space(ICON_GAP)
+			ui.space(ui.ICON_GAP)
 		}
 		ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, font_size = math.round(em * 1.1)})
 		ui.label(APP_TITLE + "###name")
@@ -162,17 +131,17 @@ title_bar :: proc(app: ^App, em: f32) {
 		// (an update to install, coming, or in place: a button before the others; nothing otherwise)
 		if app.updater != nil {
 			ui.next({height = ui.px(math.round(em * 1.9))})
-			if prefs_page.update_badge(app.updater, proc(user: rawptr) { app_restart((^App)(user)) }, app) != nil { space(CONTROL_GAP) }
+			if prefs_page.update_badge(app.updater, proc(user: rawptr) { app_restart((^App)(user)) }, app) != nil { ui.space(ui.CONTROL_GAP) }
 		}
 		if app.settings_open {
 			if bar_button("###back", lucide.ARROW_LEFT, ui.key_tip(i18n.tr("Back to the steps"), {.Escape, {}}), em) { app.settings_open = false }
 		} else {
 			if bar_button("###palette", lucide.COMMAND, ui.command_tip(ui.palette_command()), em) { palette_show(app) }
-			space(TOOL_GAP)
+			ui.space(ui.TOOL_GAP)
 			if bar_button("###settings", lucide.SETTINGS, action_tip(.Settings), em) { settings_toggle(app) }
 		}
 		// (the window's buttons: their own gap; nothing when the system draws the title bar, with its own buttons)
-		space(platform.is_integrated_title(app.main.win) ? CONTROL_GAP : SPACE_3)
+		ui.space(platform.is_integrated_title(app.main.win) ? ui.CONTROL_GAP : ui.SPACE_3)
 		ui.window_buttons()
 	}
 }
@@ -199,7 +168,7 @@ steps :: proc(app: ^App, em: f32) {
 		for s, i in shown {
 			if i > 0 {
 				if ui.tags("weak") {
-					ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = math.round(em * SPACE_3)})
+					ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = math.round(em * ui.SPACE_3)})
 					ui.label(fmt.tprintf("·###dot%d", i))
 				}
 			}
@@ -207,7 +176,7 @@ steps :: proc(app: ^App, em: f32) {
 			if ui.tags(lit ? "" : "weak") {
 				tone := lit ? ui.color("accent") : ui.color("text")
 				small_icon(em, s.glyph, tone)
-				space(SPACE_1)
+				ui.space(ui.SPACE_1)
 				ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, fg = tone})
 				ui.label(fmt.tprintf("%s###step%d", s.words, i))
 			}
@@ -226,20 +195,17 @@ small_icon :: proc(em: f32, glyph: string, fg: ui.Color) {
 ICON_EM :: 1.2
 ICON_LINE_EM :: 1.45
 
-// A paragraph with an icon before its words, in the tone `tone` ("": the text's), its icon on its first line. In a card
-// it starts at the card's inset; on the page, at the page's margin (`page`).
+// A paragraph with an icon before its words, in the tone `tone` ("": the text's), its icon on its first line.
 @(private = "file")
-icon_paragraph :: proc(em: f32, id, glyph, text, tone: string, page := false) {
+icon_paragraph :: proc(em: f32, id, glyph, text, tone: string) {
 	line_next()
 	if ui.row(id = fmt.tprintf("%s_row", id)) {
-		if page { space(PAGE_MARGIN) }
 		if ui.tags(tone) {
 			small_icon(em, glyph, ui.color("text"))
-			space(ICON_GAP)
+			ui.space(ui.ICON_GAP)
 			ui.next({width = ui.fill(), text_pad = 0})
 			ui.paragraph(fmt.tprintf("%s%s", text, id))
 		}
-		if page { page_end() }
 	}
 }
 
@@ -248,7 +214,7 @@ icon_paragraph :: proc(em: f32, id, glyph, text, tone: string, page := false) {
 
 @(private = "file")
 no_bundle_view :: proc(app: ^App, em: f32) {
-	if card("###nobundle") {
+	if ui.card("", id = "###nobundle") {
 		text := app.bundle_error == .Bad_Manifest ? i18n.tr("The list of programs this copy of Atelier carries cannot be read: download Atelier again.") : i18n.tr("This copy of Atelier carries no programs: build it with ateliertool package.")
 		icon_paragraph(em, "###nobundle_text", lucide.ALERT_TRIANGLE, text, "bad")
 	}
@@ -266,10 +232,10 @@ by_line :: proc(app: ^App, em: f32) {
 			ui.next({width = ui.text_size(), height = ui.px(line), font_size = size, text_pad = 0})
 			ui.label(fmt.tprintf("%s###by_word", i18n.tr("By")))
 		}
-		space(SPACE_1)
+		ui.space(ui.SPACE_1)
 		if mark, has := app.install.vendor_mark.?; has {
 			image(mark.texture, mark.size, math.round(em * 0.95), "###by_mark")
-			space(SPACE_1)
+			ui.space(ui.SPACE_1)
 		}
 		ui.next({font_size = size})
 		if ui.button("###by_name", VENDOR, o = {face = .Link, height = line, tip = VENDOR_URL}).clicked { ui.open(VENDOR_URL, .Url) }
@@ -282,10 +248,9 @@ welcome_view :: proc(app: ^App, em: f32) {
 	// atelier's mark, its name and its line: what this window is
 	line_next()
 	if ui.row(.Center, id = "###head") {
-		space(PAGE_MARGIN)
 		if app.logo_size != {} {
 			image(app.logo, app.logo_size, math.round(em * 3), "###logo")
-			space(SPACE_4)
+			ui.space(ui.SPACE_4)
 		}
 		ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
 		if ui.column(id = "###words") {
@@ -297,10 +262,9 @@ welcome_view :: proc(app: ^App, em: f32) {
 			}
 			by_line(app, em)
 		}
-		page_end()
 	}
 	// (the head says what atelier is and who makes it; the steps show the rest: no paragraph says it again)
-	space(GROUP_GAP)
+	ui.space(ui.GROUP_GAP)
 	// (the programs carried, under their count: atelier is this window)
 	n := len(app.bundle.programs)
 	// (when it was made, as a person says it, in local time: "today 18:42", "Nov 10, 18:42". The clock's offset is the
@@ -312,20 +276,17 @@ welcome_view :: proc(app: ^App, em: f32) {
 	} else {
 		count = fmt.tprintf(i18n.tr(n, "This copy carries %d program.", "This copy carries %d programs."), n)
 	}
-	icon_paragraph(em, "###count", lucide.PACKAGE, count, "weak", page = true)
-	space(LINE_GAP)
-	if list("###welcome_list") {
-		first := true
+	icon_paragraph(em, "###count", lucide.PACKAGE, count, "weak")
+	ui.space(ui.LINE_GAP)
+	if ui.list_card("###welcome_list") {
 		for p, i in app.programs {
 			if p.own { continue }
-			if !first { divider() }
-			first = false
-			if list_row(fmt.tprintf("###welcome_%s", p.slug)) {
+			if ui.card_row(fmt.tprintf("###welcome_%s", p.slug)) {
 				program_mark(&app.rows[i], em * MARK_EM, "###mark")
-				space(SPACE_3)
+				ui.space(ui.SPACE_3)
 				ui.next({width = ui.text_size(), height = ui.px(math.round(em * MARK_EM)), text_pad = 0})
 				ui.label(fmt.tprintf("%s###name", p.name))
-				space(SPACE_3)
+				ui.space(ui.SPACE_3)
 				if ui.tags("weak") {
 					ui.next({width = ui.fill(), height = ui.px(math.round(em * MARK_EM)), text_pad = 0})
 					ui.label(fmt.tprintf("%s###tagline", p.tagline))
@@ -339,32 +300,29 @@ welcome_view :: proc(app: ^App, em: f32) {
 programs_view :: proc(app: ^App, em: f32) {
 	if app.nixos { nixos_notice(app, em) }
 	if app.after_update {
-		if card("###after_update") {
+		if ui.card("", id = "###after_update") {
 			icon_paragraph(em, "###after_update_text", lucide.CHECK_CIRCLE, i18n.tr("Atelier is up to date: choose what to update."), "good")
 		}
-		space(GROUP_GAP)
+		ui.space(ui.GROUP_GAP)
 	}
 	if app.suite_version != "" { suite_banner_view(app, em) }
 	// the list's head: what to do, and the buttons that act on the whole list
 	line_next()
 	if ui.row(.Center, id = "###select") {
-		space(PAGE_MARGIN)
 		// (no words before the buttons: the step and the boxes say what to do)
 		ui.spacer(ui.fill())
 		// (the updater checks on its own thread: the button turns meanwhile)
 		checking := app.update_phase == .Checking
 		if ui.button("###check", i18n.tr("Check for updates"), lucide.REFRESH_CW, {icon_font = ui.lucide_icons(), quiet = true, disabled = !action_enabled(app, .Check_Updates) && !checking, busy = checking}).clicked { update_check_asked(app) }
-		space(CONTROL_GAP)
+		ui.space(ui.CONTROL_GAP)
 		can := app.known
 		if ui.button("###all", i18n.tr("Select all"), lucide.CHECK, {icon_font = ui.lucide_icons(), quiet = true, disabled = !can}).clicked { select_all(app, true) }
-		space(CONTROL_GAP)
+		ui.space(ui.CONTROL_GAP)
 		if ui.button("###none", i18n.tr("Select none"), lucide.X, {icon_font = ui.lucide_icons(), quiet = true, disabled = !can}).clicked { select_all(app, false) }
-		page_end()
 	}
-	space(LINE_GAP)
-	if list("###programs") {
+	ui.space(ui.LINE_GAP)
+	if ui.list_card("###programs") {
 		for p, i in app.programs {
-			if i > 0 { divider() }
 			program_row(app, p, &app.rows[i], em)
 		}
 	}
@@ -374,30 +332,30 @@ programs_view :: proc(app: ^App, em: f32) {
 // and at its end the button that updates atelier, then opens the new copy on this step.
 @(private = "file")
 suite_banner_view :: proc(app: ^App, em: f32) {
-	if card("###suite") {
+	if ui.card("", id = "###suite") {
 		line_next()
 		if ui.row(.Center, id = "###suite_row") {
 			ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
 			if ui.column(id = "###suite_words") {
 				icon_paragraph(em, "###suite_text", lucide.ARROW_UP_CIRCLE, suite_banner(app.suite_version, app.suite_newer), "accent")
 			}
-			space(CONTROL_GAP)
+			ui.space(ui.CONTROL_GAP)
 			// (the demo has no updater: its button is shown as it would be, and does nothing)
 			downloading := app.update_phase == .Downloading
 			disabled := !app.demo && !suite_update_possible(app) && !downloading
 			if button("###suite_update", i18n.tr("Update Atelier and the programs"), lucide.DOWNLOAD, .Primary, disabled, busy = downloading) { suite_update(app) }
 		}
 	}
-	space(GROUP_GAP)
+	ui.space(ui.GROUP_GAP)
 }
 
 // On NixOS, Nix is the better install (it updates the programs with the system): said once, with each program's line
 // for Nix and a copy button, under the words and aligned with them. The boxes stay: an install from here runs too.
 @(private = "file")
 nixos_notice :: proc(app: ^App, em: f32) {
-	if card("###nixos") {
+	if ui.card("", id = "###nixos") {
 		icon_paragraph(em, "###nixos_text", lucide.SNOWFLAKE, i18n.tr("This system is NixOS: Nix is the better install, it updates the programs with the system. Add each one with Nix, or install them from here:"), "warn")
-		space(LINE_GAP)
+		ui.space(ui.LINE_GAP)
 		for p, i in app.programs {
 			// (atelier from Nix carries no programs: the line would install an empty installer)
 			if p.own { continue }
@@ -405,10 +363,10 @@ nixos_notice :: proc(app: ^App, em: f32) {
 			if line == "" { continue }
 			line_next()
 			if ui.row(.Center, id = fmt.tprintf("###nix_%s", p.slug)) {
-				ui.spacer(ui.px(math.round(em * ICON_EM) + math.round(em * ICON_GAP)))
+				ui.spacer(ui.px(math.round(em * ICON_EM) + math.round(em * ui.ICON_GAP)))
 				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.8)), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.9)})
 				ui.label(fmt.tprintf("%s###line", line))
-				space(CONTROL_GAP)
+				ui.space(ui.CONTROL_GAP)
 				copied := app.copied == i
 				sig := ui.button("###copy", icon = copied ? lucide.CHECK : lucide.COPY, o = {icon_font = ui.lucide_icons(), tip = copied ? i18n.tr("Copied") : i18n.tr("Copy")})
 				if sig.clicked {
@@ -420,35 +378,35 @@ nixos_notice :: proc(app: ^App, em: f32) {
 			}
 		}
 	}
-	space(GROUP_GAP)
+	ui.space(ui.GROUP_GAP)
 }
 
 // A program's row of the list: its box, its mark, its name and version, its line, its state at the end.
 @(private = "file")
 program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
-	if list_row(fmt.tprintf("###program_%s", p.slug)) {
+	if ui.card_row(fmt.tprintf("###program_%s", p.slug)) {
 		ui.next({width = ui.px(math.round(em * 1.6)), height = ui.px(math.round(em * 2))})
 		if ui.disabled(!row_choosable(app, r^)) { ui.checkbox("###box", "", &r.ticked) }
-		space(ICON_GAP)
+		ui.space(ui.ICON_GAP)
 		program_mark(r, em * MARK_EM, "###mark")
-		space(SPACE_3)
+		ui.space(ui.SPACE_3)
 		ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
 		if ui.column(id = "###words") {
 			line_next()
 			if ui.row(.Center, id = "###title") {
 				ui.next({width = ui.text_size(), height = ui.px(math.round(em * 1.5)), font_size = math.round(em * 1.1), text_pad = 0})
 				ui.label(fmt.tprintf("%s###name", p.name))
-				space(SPACE_2)
+				ui.space(ui.SPACE_2)
 				if ui.tags("weak") {
 					ui.next({width = ui.text_size(), height = ui.px(math.round(em * 1.5)), text_pad = 0})
 					ui.label(fmt.tprintf("%s###version", p.version))
 				}
 				// (the newer suite carries it at a newer version: after atelier's update)
 				if available := suite_available(app.suite_newer, p.slug); available != "" {
-					space(SPACE_3)
+					ui.space(ui.SPACE_3)
 					if ui.tags("accent") {
 						small_icon(em, lucide.ARROW_UP_CIRCLE, ui.color("text"))
-						space(SPACE_1)
+						ui.space(ui.SPACE_1)
 						ui.next({width = ui.text_size(), height = ui.px(math.round(em * 1.5)), text_pad = 0, font_size = math.round(em * 0.86)})
 						ui.label(fmt.tprintf("%s###available", fmt.tprintf(i18n.tr("%s available"), available)))
 					}
@@ -465,7 +423,7 @@ program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
 				}
 			}
 		}
-		space(SPACE_4)
+		ui.space(ui.SPACE_4)
 		state_badge(app, r^, em)
 	}
 }
@@ -476,12 +434,12 @@ state_badge :: proc(app: ^App, r: Row, em: f32) {
 	reading := !app.known || r.status.state == .Reading
 	if reading {
 		ui.spinner("###reading", math.round(em * 1.1))
-		space(ICON_GAP)
+		ui.space(ui.ICON_GAP)
 	}
 	if ui.tags(state_tone(r.status.state)) {
 		if !reading {
 			small_icon(em, state_glyph(r.status.state), ui.color("text"))
-			space(SPACE_1)
+			ui.space(ui.SPACE_1)
 		}
 		ui.next({width = ui.text_size(), height = ui.px(math.round(em * 2)), text_pad = 0})
 		// (the reason of Unknown is under the tagline, where it has room)
@@ -499,16 +457,15 @@ licences_view :: proc(app: ^App, em: f32) {
 	for p, i in app.programs {
 		r := &app.rows[i]
 		if !r.ticked { continue }
-		if !first { space(GROUP_GAP) }
+		if !first { ui.space(ui.GROUP_GAP) }
 		first = false
 		section_head(em, fmt.tprintf("###licences_%s", p.slug), fmt.tprintf("%s %s", p.name, p.version))
-		space(LINE_GAP)
+		ui.space(ui.LINE_GAP)
 		if r.licences == nil {
 			line_next()
 			if ui.row(.Center, id = fmt.tprintf("###licences_reading_%s", p.slug)) {
-				space(PAGE_MARGIN)
 				ui.spinner("###spin")
-				space(ICON_GAP)
+				ui.space(ui.ICON_GAP)
 				if ui.tags("weak") {
 					ui.next({width = ui.fill(), height = ui.px(math.round(em * 2)), text_pad = 0})
 					ui.label(fmt.tprintf("%s###text", i18n.tr("Reading the licences…")))
@@ -517,31 +474,24 @@ licences_view :: proc(app: ^App, em: f32) {
 			continue
 		}
 		if len(p.licences) == 0 {
-			icon_paragraph(em, fmt.tprintf("###licences_none_%s", p.slug), lucide.ALERT_TRIANGLE, i18n.tr("This program carries no licence file."), "warn", page = true)
+			icon_paragraph(em, fmt.tprintf("###licences_none_%s", p.slug), lucide.ALERT_TRIANGLE, i18n.tr("This program carries no licence file."), "warn")
 			continue
 		}
 		for l, k in p.licences {
 			if k >= len(r.licences) { break }
-			if k > 0 { space(ITEM_GAP) }
+			if k > 0 { ui.space(ui.ITEM_GAP) }
 			line_next()
 			if ui.row(.Center, id = fmt.tprintf("###licence_title_%s_%d", p.slug, k)) {
-				space(PAGE_MARGIN)
 				if ui.tags("weak") {
 					small_icon(em, lucide.FILE_TEXT, ui.color("text"))
-					space(ICON_GAP)
+					ui.space(ui.ICON_GAP)
 					ui.next({width = ui.fill(), height = ui.px(math.round(em * ICON_LINE_EM)), text_pad = 0})
 					ui.label(fmt.tprintf("%s###title", l.title))
 				}
-				page_end()
 			}
-			space(SPACE_1)
-			line_next()
-			if ui.row(id = fmt.tprintf("###licence_%s_%d_line", p.slug, k)) {
-				space(PAGE_MARGIN)
-				ui.next({width = ui.fill(), height = ui.px(math.round(em * TEXT_VIEW_EM)), radius = math.round(em * CARD_RADIUS)})
-				if ui.well(fmt.tprintf("###licence_%s_%d_well", p.slug, k), .X) { text_scroll(em, fmt.tprintf("###licence_%s_%d", p.slug, k), r.licences[k]) }
-				page_end()
-			}
+			ui.space(ui.SPACE_1)
+			ui.next({width = ui.fill(), height = ui.px(math.round(em * TEXT_VIEW_EM)), radius = math.round(em * WELL_RADIUS_EM)})
+			if ui.well(fmt.tprintf("###licence_%s_%d_well", p.slug, k), .X) { text_scroll(em, fmt.tprintf("###licence_%s_%d", p.slug, k), r.licences[k]) }
 		}
 	}
 }
@@ -560,14 +510,11 @@ OUTPUT_VIEW_EM :: 8
 @(private = "file")
 installing_view :: proc(app: ^App, em: f32) {
 	install_panel(app, em)
-	space(GROUP_GAP)
-	if list("###installs") {
-		first := true
+	ui.space(ui.GROUP_GAP)
+	if ui.list_card("###installs") {
 		for p, i in app.programs {
 			r := &app.rows[i]
 			if r.result == .None { continue }
-			if !first { divider() }
-			first = false
 			install_row(app, p, i, r, em)
 		}
 	}
@@ -604,26 +551,26 @@ install_panel :: proc(app: ^App, em: f32) {
 		}
 		note = i18n.tr("Each one is in the applications menu, and updates itself.")
 	}
-	if card("###progress") {
+	if ui.card("", id = "###progress") {
 		line_next()
 		if ui.row(.Center, id = "###count_row") {
 			if ui.tags(tone) {
 				small_icon(em, glyph, ui.color("text"))
-				space(ICON_GAP)
+				ui.space(ui.ICON_GAP)
 				ui.next({width = ui.fill(), height = ui.px(ui.dense(em * CONTROL_EM)), text_pad = 0, font_size = math.round(em * 1.1)})
 				ui.label(fmt.tprintf("%s###count", text))
 			}
 			retrying := app.stage == .Retrying
 			if app.stage != .Running && (failed > 0 || retrying) {
-				space(CONTROL_GAP)
+				ui.space(ui.CONTROL_GAP)
 				disabled := !action_enabled(app, .Retry_Failed) && !retrying
 				if button("###retry_failed", i18n.tr("Retry the failed ones"), lucide.ROTATE_CCW, .Primary, disabled, busy = retrying) { retry_failed(app) }
 			}
 		}
-		space(LINE_GAP)
-		ui.next({width = ui.fill(), height = ui.px(math.round(em * SPACE_2))})
+		ui.space(ui.LINE_GAP)
+		ui.next({width = ui.fill(), height = ui.px(math.round(em * ui.SPACE_2))})
 		ui.progress("###bar", install_fraction(app))
-		space(SPACE_3)
+		ui.space(ui.SPACE_3)
 		if ui.tags("weak") { icon_paragraph(em, "###note", lucide.INFO, note, "") }
 	}
 }
@@ -636,12 +583,12 @@ CONTROL_EM :: f32(2.3)
 // failure and its output.
 @(private = "file")
 install_row :: proc(app: ^App, p: Program, index: int, r: ^Row, em: f32) {
-	indent := math.round(em * MARK_EM) + math.round(em * SPACE_3)
-	if list_row(fmt.tprintf("###installing_%s", p.slug), .Y) {
+	indent := math.round(em * MARK_EM) + math.round(em * ui.SPACE_3)
+	if ui.card_row(fmt.tprintf("###installing_%s", p.slug), .Y) {
 		line_next()
 		if ui.row(.Center, id = "###head") {
 			program_mark(r, em * MARK_EM, "###mark")
-			space(SPACE_3)
+			ui.space(ui.SPACE_3)
 			ui.next({width = ui.px(math.round(em * NAME_EM)), height = ui.children_sum(), axis = .Y})
 			if ui.column(id = "###words") {
 				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.5)), text_pad = 0})
@@ -651,11 +598,11 @@ install_row :: proc(app: ^App, p: Program, index: int, r: ^Row, em: f32) {
 					ui.label(fmt.tprintf("%s###version", p.version))
 				}
 			}
-			space(SPACE_3)
+			ui.space(ui.SPACE_3)
 			steps := install_steps(r^, p.own)
 			ui.next({width = ui.fill()})
 			ui.stepper("###phases", steps[:])
-			space(SPACE_4)
+			ui.space(ui.SPACE_4)
 			ui.next({width = ui.px(math.round(em * ROW_END_EM)), height = ui.children_sum(), axis = .X, cross = .Center})
 			if ui.row(.Center, id = "###end") {
 				ui.spacer(ui.fill())
@@ -685,7 +632,7 @@ install_row :: proc(app: ^App, p: Program, index: int, r: ^Row, em: f32) {
 @(private = "file")
 installed_lines :: proc(p: Program, r: Row, indent, em: f32) {
 	if r.status.program == "" { return }
-	space(SPACE_1)
+	ui.space(ui.SPACE_1)
 	{
 		line_next()
 		if ui.row(.Center, id = "###where_row") {
@@ -693,7 +640,7 @@ installed_lines :: proc(p: Program, r: Row, indent, em: f32) {
 			if ui.tags("weak") {
 				ui.next({width = ui.px(math.round(em * ICON_EM)), height = ui.px(math.round(em * ICON_LINE_EM)), font = ui.lucide_icons(), text_align = .Center, font_size = math.round(em * 0.86), text_pad = 0})
 				ui.build_box({.Draw_Text, .No_Text_Trunc}, fmt.tprintf("%s###where_icon", lucide.FOLDER))
-				space(ICON_GAP)
+				ui.space(ui.ICON_GAP)
 				ui.next({width = ui.fill(), height = ui.px(math.round(em * ICON_LINE_EM)), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.86)})
 				ui.label(fmt.tprintf("%s###where", r.status.program))
 			}
@@ -706,18 +653,18 @@ installed_lines :: proc(p: Program, r: Row, indent, em: f32) {
 @(private = "file")
 failure_lines :: proc(app: ^App, index: int, r: ^Row, indent, em: f32) {
 	details := failure_details(r^)
-	space(SPACE_1)
+	ui.space(ui.SPACE_1)
 	line_next()
 	if ui.row(.Center, id = "###reason_row") {
 		ui.spacer(ui.px(indent))
 		if ui.tags("bad") {
 			small_icon(em, lucide.ALERT_CIRCLE, ui.color("text"))
-			space(ICON_GAP)
+			ui.space(ui.ICON_GAP)
 			ui.next({width = ui.fill(), text_pad = 0})
 			ui.paragraph(fmt.tprintf("%s###reason", failure_reason(r.output, r.phase, r.exit_code)))
 		}
 		if details != "" {
-			space(SPACE_4)
+			ui.space(ui.SPACE_4)
 			ui.next({width = ui.px(math.round(em * ROW_END_EM)), height = ui.children_sum(), axis = .X, cross = .Center})
 			if ui.row(.Center, id = "###details_end") {
 				ui.spacer(ui.fill())
@@ -728,17 +675,18 @@ failure_lines :: proc(app: ^App, index: int, r: ^Row, indent, em: f32) {
 		}
 	}
 	if r.details && details != "" {
-		space(LINE_GAP)
+		ui.space(ui.LINE_GAP)
 		line_next()
 		if ui.row(id = "###output_row") {
 			ui.spacer(ui.px(indent))
-			ui.next({width = ui.fill(), height = ui.px(math.round(em * OUTPUT_VIEW_EM)), axis = .X, radius = math.round(em * CARD_RADIUS), bg = ui.color("well")})
-			if ui.parent(ui.build_box({.Draw_Background}, "###output_area")) {
+			// (a well without its edge: it is inside a card, where a second edge is one line too many)
+			ui.next({width = ui.fill(), height = ui.px(math.round(em * OUTPUT_VIEW_EM)), radius = math.round(em * WELL_RADIUS_EM)})
+			if ui.well("###output_area", .X, edge = false) {
 				text_scroll(em, "###output", details)
 				// (the copy of the whole output, in the area's corner: it acts on what is in the area)
 				ui.next({width = ui.children_sum(), height = ui.pct(1), axis = .Y})
 				if ui.column(id = "###copy_column") {
-					space(SPACE_1)
+					ui.space(ui.SPACE_1)
 					copied := app.copied == index
 					sig := ui.button("###copy_output", icon = copied ? lucide.CHECK : lucide.COPY, o = {icon_font = ui.lucide_icons(), quiet = true, tip = copied ? i18n.tr("Copied") : i18n.tr("Copy")})
 					if sig.clicked {
@@ -748,7 +696,7 @@ failure_lines :: proc(app: ^App, index: int, r: ^Row, indent, em: f32) {
 						app.copied = -1   // (the check goes when the pointer leaves)
 					}
 				}
-				space(SPACE_1)
+				ui.space(ui.SPACE_1)
 			}
 		}
 	}
@@ -826,7 +774,7 @@ program_tagline :: proc(p: Program) -> string {
 buttons :: proc(app: ^App) {
 	ui.next({width = ui.fill(), height = ui.children_sum(), axis = .X, cross = .Center})
 	if ui.row(.Center, id = "###buttons") {
-		space(PAGE_MARGIN)
+		ui.space(ui.PAGE_MARGIN)
 		if app.bundle != nil && (app.step == .Programs || app.step == .Licences) {
 			if button("###back", i18n.tr("Back"), lucide.ARROW_LEFT, .Neutral) { app_step(app, .Back) }
 		}
@@ -835,21 +783,21 @@ buttons :: proc(app: ^App) {
 		if app.bundle != nil {
 			#partial switch app.step {
 			case .Welcome:
-				space(CONTROL_GAP)
+				ui.space(ui.CONTROL_GAP)
 				if button("###next", i18n.tr("Choose the programs"), lucide.ARROW_RIGHT, .Primary, len(app.rows) == 0) { app_step(app, .Next) }
 			case .Programs:
-				space(CONTROL_GAP)
+				ui.space(ui.CONTROL_GAP)
 				if button("###next", i18n.tr("Next"), lucide.ARROW_RIGHT, .Primary, chosen_count(app) == 0) { app_step(app, .Next) }
 			case .Licences:
-				space(CONTROL_GAP)
+				ui.space(ui.CONTROL_GAP)
 				if button("###install", i18n.tr("Accept and install"), lucide.DOWNLOAD, .Success, !licences_ready(app) || chosen_count(app) == 0) { app_step(app, .Next) }
 			case .Checking:
 				// (the look for the programs that run, then its question: the button itself waits)
-				space(CONTROL_GAP)
+				ui.space(ui.CONTROL_GAP)
 				button("###install", i18n.tr("Accept and install"), lucide.DOWNLOAD, .Success, busy = true)
 			}
 		}
-		space(PAGE_MARGIN)
+		ui.space(ui.PAGE_MARGIN)
 	}
 }
 
@@ -862,79 +810,6 @@ button :: proc(id, label, glyph: string, intent: ui.Intent, disabled := false, b
 ////////////////////////////////
 // Building blocks
 
-// A card across the page, inside its margins, its content CARD_PAD in from each edge: `if card(...) { ... }`. Its
-// content is a column; nothing framed goes in it. `pad_y` replaces the inset above and below (a list's rows bring their
-// own). The theme's card: the face and the edge of the toolkit's ui.card and of the settings' cards.
-@(private = "file", deferred_in = card_end)
-card :: proc(id: string, pad_y := CARD_PAD) -> bool {
-	return card_begin(id, pad_y)
-}
-
-// (card's opening without its deferred end: list opens a card and ends it in its own end)
-@(private = "file")
-card_begin :: proc(id: string, pad_y: f32) -> bool {
-	em := ui.font_size()
-	line_next()
-	ui.push_parent(ui.build_box({}, fmt.tprintf("%s_line", id)))
-	space(PAGE_MARGIN)
-	ui.next({width = ui.fill(), height = ui.children_sum(), axis = .X, radius = math.round(em * CARD_RADIUS)})
-	box: ^ui.Box
-	if ui.tags("card") { box = ui.build_box({.Draw_Background, .Draw_Border, .Plate}, id) }
-	ui.a11y_default(box, {role = .Group})
-	ui.push_parent(box)
-	space(CARD_PAD)
-	ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
-	ui.push_parent(ui.build_box({}, "###body"))
-	space(pad_y)
-	return true
-}
-
-@(private = "file")
-card_end :: proc(id: string, pad_y := CARD_PAD) {
-	space(pad_y)
-	ui.pop_parent()   // body
-	space(CARD_PAD)
-	ui.pop_parent()   // card
-	page_end()
-	ui.pop_parent()   // line
-}
-
-// A list: one card whose rows (list_row) are split by hairlines (divider). Its first and last rows sit CARD_PAD from
-// its edges, as the content of any card.
-@(private = "file", deferred_in = list_end)
-list :: proc(id: string) -> bool {
-	return card_begin(id, CARD_PAD - ROW_PAD)
-}
-
-@(private = "file")
-list_end :: proc(id: string) {
-	card_end(id, CARD_PAD - ROW_PAD)
-}
-
-// A row of a list: ROW_PAD above and below, its content laid along `axis` (.X: one line, centred across it).
-@(private = "file", deferred_in = list_row_end)
-list_row :: proc(id: string, axis := ui.Axis.X) -> bool {
-	ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
-	ui.push_parent(ui.build_box({}, id))
-	space(ROW_PAD)
-	ui.next({width = ui.fill(), height = ui.children_sum(), axis = axis, cross = axis == .X ? .Center : .Start})
-	ui.push_parent(ui.build_box({}, "###content"))
-	return true
-}
-
-@(private = "file")
-list_row_end :: proc(id: string, axis := ui.Axis.X) {
-	ui.pop_parent()
-	space(ROW_PAD)
-	ui.pop_parent()
-}
-
-// The hairline between two rows of a list, as wide as the card's content.
-@(private = "file")
-divider :: proc() {
-	ui.hline(ui.fill())
-}
-
 // A line of the window: as wide as it, as tall as what it holds.
 @(private = "file")
 line_next :: proc() {
@@ -946,27 +821,26 @@ line_next :: proc() {
 section_head :: proc(em: f32, id, title: string) {
 	line_next()
 	if ui.row(.Center, id = id) {
-		space(PAGE_MARGIN)
 		ui.next({width = ui.px(max(math.round(em * 0.22), 2)), height = ui.px(math.round(em * 1.5)), bg = ui.color("accent")})
 		ui.build_box({.Draw_Background}, "###bar")
-		space(ICON_GAP)
+		ui.space(ui.ICON_GAP)
 		ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.7)), text_pad = 0, font_size = math.round(em * 1.1)})
 		ui.label(fmt.tprintf("%s###title", title))
-		page_end()
 	}
 }
 
-// A long text (a licence, an install's output), monospace, INNER_PAD in from its area's edges: what does not fit
-// scrolls. Its area (a well, a tinted box) is the caller's.
+// A long text (a licence, an install's output), monospace, INNER_PAD in from its well's edges: what does not fit
+// scrolls. Its well is the caller's. (the inset above and below is in the scroll view, so the text scrolls to the well's
+// edge: the well's own `pad` would cut it at the inset)
 @(private = "file")
 text_scroll :: proc(em: f32, id, text: string) {
-	space(INNER_PAD)
+	ui.space(ui.INNER_PAD)
 	ui.next({width = ui.fill(), height = ui.pct(1)})
 	if ui.scroll_y(fmt.tprintf("%s_scroll", id)) {
-		space(SPACE_2)
+		ui.space(ui.SPACE_2)
 		ui.next({width = ui.fill(), text_pad = 0, font = ui.mono_font(), font_size = math.round(em * 0.86)})
 		ui.paragraph(fmt.tprintf("%s###text", text))
-		space(SPACE_2)
+		ui.space(ui.SPACE_2)
 	}
 }
 

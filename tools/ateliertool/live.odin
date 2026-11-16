@@ -9,6 +9,7 @@ package ateliertool
 
 import "core:fmt"
 import "core:os"
+import "core:path/filepath"
 import "core:strings"
 import "core:time"
 import cdp "gt:cdp"
@@ -87,7 +88,7 @@ live_after_update :: proc() -> bool {
 	home := fmt.tprintf("%s/home", sway.dir)
 	_ = os.make_directory_all(home)
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
-	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--after-update"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT), fmt.tprintf("HOME=%s", home)}, fmt.tprintf("%s/after/atelier.log", LIVE_DIR))
+	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--after-update"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT)}, fmt.tprintf("%s/after/atelier.log", LIVE_DIR))
 	if why != "" { fmt.eprintln("live:", why); return false }
 	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
 	c: cdp.Client
@@ -141,25 +142,27 @@ live_window :: proc() -> bool {
 	sway: toolbox.Sway
 	if why := toolbox.sway_start(&sway, fmt.tprintf("%s/window", LIVE_DIR), {config = SHOTS_SWAY, homes = true, cache = true}); why != "" { fmt.eprintln("live:", why); return false }
 	defer toolbox.sway_stop(&sway)
-	// (HOME too: the PATH's link goes to ~/.local/bin, which no XDG variable moves)
+	// (sway_start's homes give HOME, XDG_DATA_HOME... of the session's own: an install in ~/.local/opt and the PATH's
+	// link in ~/.local/bin stay in it)
 	home := fmt.tprintf("%s/home", sway.dir)
 	_ = os.make_directory_all(home)
-	env := make([dynamic]string, context.temp_allocator)
-	for e in sway.env { if !strings.has_prefix(e, "HOME=") { append(&env, e) } }
-	append(&env, fmt.tprintf("HOME=%s", home))
+	env := sway.env
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
 	data := ""
 	for e in env { if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] } }
 	// A program that runs: papier installed, its manifest taken away (to repair: its box is ticked), its installed copy
 	// started. The window must ask, close it and install it.
-	open, ok_open, windowless := live_open_papier(&sway, env[:], bundle, data, home)
+	open, ok_open, windowless := live_open_papier(&sway, env, bundle, data, home)
 	if !ok_open { return false }
 	// A program whose install fails once: a file where its install folder goes. The window must show Retry; once the
 	// file is gone, the retry installs it.
-	failing := PROGRAMS[1].slug
-	obstacle := fmt.tprintf("%s/%s", data, failing)
-	if os.write_entire_file(obstacle, transmute([]u8)string("not a folder\n")) != nil { fmt.eprintfln("live: %s cannot be written", obstacle); return false }
-	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--look=dark"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT), fmt.tprintf("HOME=%s", home)}, fmt.tprintf("%s/window/atelier.log", LIVE_DIR))
+	failing := PROGRAMS[1]
+	obstacles := live_install_folders(failing, data, home)
+	for obstacle in obstacles {
+		_ = os.make_directory_all(filepath.dir(obstacle))
+		if os.write_entire_file(obstacle, transmute([]u8)string("not a folder\n")) != nil { fmt.eprintfln("live: %s cannot be written", obstacle); return false }
+	}
+	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--look=dark"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT)}, fmt.tprintf("%s/window/atelier.log", LIVE_DIR))
 	if why != "" { fmt.eprintln("live:", why); return false }
 	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
 	c: cdp.Client
@@ -206,7 +209,9 @@ live_window :: proc() -> bool {
 	step(&c, "1 failed", "", LIVE_WAIT) or_return
 	// (the reason on the failed row itself, under its stepper: the first line of its --install's output)
 	step(&c, "the install failed", "", SHOTS_WAIT) or_return
-	if os.remove(obstacle) != nil { fmt.eprintfln("live: %s cannot be removed", obstacle); return false }
+	for obstacle in obstacles {
+		if os.remove(obstacle) != nil { fmt.eprintfln("live: %s cannot be removed", obstacle); return false }
+	}
 	// (the row's own Retry, not the panel's "Retry the failed ones": the row starts again in place)
 	cdp.wait_idle(&c, SHOTS_WAIT)
 	if !live_click_exact(&c, "Retry") { return false }
@@ -253,6 +258,14 @@ live_click_exact :: proc(c: ^cdp.Client, text: string) -> bool {
 	return true
 }
 
+// Where a carried program installs itself in a home: its release's toolkit decides. Since gui_toolkit 0.282.0 it is
+// the vendor's folder (~/.local/opt/FromentSoftware/<Name>); a release built before goes to $XDG_DATA_HOME/<slug>. The
+// bundle carries both kinds until every program has a newer release, so live looks at both.
+@(private = "file")
+live_install_folders :: proc(p: Suite_Program, data, home: string) -> [2]string {
+	return {fmt.tprintf("%s/%s", data, p.slug), fmt.tprintf("%s/.local/opt/FromentSoftware/%s", home, p.name)}
+}
+
 // How long the papier that runs may take to end once the window closes it (atelier's own bound is 10 s per act).
 CLOSE_LIVE_WAIT :: 40 * time.Second
 
@@ -264,9 +277,10 @@ live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home:
 		fmt.eprintfln("live: papier does not install:\n%s", out)
 		return
 	}
-	folder := fmt.tprintf("%s/papier", data)
+	folder := ""
+	for f in live_install_folders(PROGRAMS[0], data, home) { if os.is_dir(f) { folder = f } }
 	files, err := os.read_all_directory_by_path(folder, context.temp_allocator)
-	if err != nil { fmt.eprintfln("live: %s cannot be read", folder); return }
+	if folder == "" || err != nil { fmt.eprintfln("live: papier's install folder cannot be read (%v)", live_install_folders(PROGRAMS[0], data, home)); return }
 	for f in files {
 		if strings.has_suffix(f.name, "_install.txt") { _ = os.remove(f.fullpath) }
 	}

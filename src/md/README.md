@@ -297,8 +297,7 @@ A part that atelier made in its own way would drift from the programs it install
   atelier's own `atelier` first, language, text, window, updates, installation, diagnostics) and atelier's own
   (`programs.ticked`). The file is `<config>/FromentSoftware/Atelier/prefs`: atelier's folders are its vendor's, then
   its title (`APP_FOLDER`). An older atelier's folders (`<config>/atelier`...) are not moved: they hold only
-  preferences, and `platform.user_dirs_move` would also move `~/.local/share/atelier` on Linux, which is the installed
-  copy's folder (gui_toolkit installs a program in `$XDG_DATA_HOME/<slug>`): its menu entry would then point to nothing.
+  preferences, and on Linux `~/.local/share/atelier` is the install of atelier 0.6.1 and before (below).
   The runtime folder keeps `atelier`: an old and a new copy still meet on the instance's socket. `docs/configuration.md` lists every preference, and a test checks it.
 - **The command palette** (Ctrl+K): `ui.Command_Palette` over atelier's actions (the steps, the boxes, the settings, the
   updates, the install of atelier, "Open <program>" once a program is installed) and the settings (`:`). Each command
@@ -314,6 +313,21 @@ A part that atelier made in its own way would drift from the programs it install
   `.sig`) names `atelier-<version>-<platform>[.exe]`, the program with its bundle after it, which is exactly the name
   `update.expected_file_name` expects. An installed atelier that updates itself gets the new programs too. The product's
   `max_binary` is 1 GiB: the toolkit's 256 MiB bound is for a program alone, and a bundle grows with the suite.
+- **Its install folder** is the toolkit's default, the vendor's folder as for every program:
+  `%LOCALAPPDATA%\Programs\FromentSoftware\Atelier`, `~/.local/opt/FromentSoftware/Atelier`. atelier gives no folder of
+  its own (until 0.6.1 it gave `atelier`, beside the default).
+
+  On Windows an older install stays where it is: the system's record names its folder. Linux has no record, so after the
+  update an atelier of 0.6.1 or before, which runs from `~/.local/share/atelier`, finds no install in the new folder.
+  Its own row reads `Repair` (the menu entry and the icons are there, but they run another file) and is ticked; until it
+  is installed again, the copy is not the installed copy and does not update itself. Its install writes the new folder
+  and points the menu entry there. The old folder (the program and its bundle) stays on the disk: the person deletes it.
+  Refused: a move of the old install, or its removal by atelier. The project keeps no compatibility layer, and the
+  row already says what to do.
+
+  The carried programs install into the folder of their own release's toolkit: a release built before gui_toolkit
+  0.282.0 goes to `$XDG_DATA_HOME/<slug>`, a newer one to the vendor's folder. atelier reads `--status`, never a path, so
+  both work; `ateliertool live` looks for both.
 
 Refused: an update file of atelier without the bundle (the toolkit's `release.package_` writes the program alone). The
 installed copy would then carry no programs, or the programs of its first install for ever.
@@ -378,27 +392,38 @@ again at an install (its first try failed) is checked against its SHA-256, so a 
 
 ## The layout
 
-Every gap and inset of atelier's views is a step of one spacing scale (`SPACE_1` 0.25, `SPACE_2` 0.5, `SPACE_3` 0.75,
-`SPACE_4` 1, `SPACE_6` 1.5 font sizes), through a role that has the same step everywhere (`src/view.odin`): the page's
-margin, a card's inset (the same on its four sides), a list row's inset, the gap between groups, between lines, between
-an icon and its words, between buttons. Until 0.5.0 each place had its own value (0.3, 0.45, 0.6, 0.9): no two places
-lined up, and a button touched its panel's edge.
+Every gap and inset of atelier's views is a step of the toolkit's spacing scale (`ui.SPACE_1` 0.25 to `ui.SPACE_6` 1.5
+font sizes), through the toolkit's role for it (`ui.space(ui.CARD_PAD)`): the page's margin, a card's inset (the same on
+its four sides), a list row's inset, the gap between groups, between lines, between an icon and its words, between
+buttons. The scale is the suite's ([gui_toolkit's src/md/features/spacing.md](https://github.com/sachahjkl/gui_toolkit/blob/master/src/md/features/spacing.md)):
+atelier keeps no scale of its own, so its pages and the programs' line up. The scale was atelier's until 0.6.1; the
+toolkit took it, with the card, the list card and the well. Until 0.5.0 each place had its own value (0.3, 0.45, 0.6,
+0.9): no two places lined up, and a button touched its panel's edge.
+
+Three gaps are no role and stay a bare step or a hand-made gap: the page's top under the title bar (`SPACE_4`, as the
+toolkit's settings), the title bar's insets, and the body's right margin, which is `PAGE_MARGIN` less the scroll bar's
+room. The page's margins are set once, around the step's column: the cards and the lines inside it fill it.
 
 One level of framing:
 
-- a group (a notice, the install's status) is one card; its button sits inside its inset, centred on its line;
-- a list (the programs, the installs, the welcome's programs) is one card whose rows are split by hairlines, never a
-  stack of framed rows;
-- nothing framed goes in a card: a failed install's output is a tinted area (the theme's well colour) without an edge,
-  on the row's text column;
+- a group (a notice, the install's status) is one card (`ui.card`); its button sits inside its inset, centred on its
+  line;
+- a list (the programs, the installs, the welcome's programs) is one list card (`ui.list_card`, `ui.card_row`) whose
+  rows are split by hairlines, never a stack of framed rows;
+- nothing framed goes in a card: a failed install's output is a well without its edge (`ui.well(edge = false)`), on
+  the row's text column;
 - what is not a group stays on the page, unframed: the welcome's head, the list's head, the licences' sections. A
   licence's text is a well on the page, not in a card.
 
 The cards end on the page's margin, where the bottom buttons end. The body's scroll bar sits in that margin: the right
 margin of the body's lines is the page's margin less the bar's room, so nothing moves when the body starts to scroll.
 
-Refused: the toolkit's `ui.card`. Its inset differs above (0.9) and at the sides (1.1), and it adds a gap of its own
-after it; atelier's cards need one inset on four sides and the page's gaps.
+Refused until 0.6.1: the toolkit's `ui.card`, whose inset differed above (0.9) and at the sides (1.1) and which added
+a gap after it. Since gui_toolkit 0.282.0 its card has one inset on four sides and no gap after it, so atelier uses it.
+
+The well's text keeps its inset above and below inside its scroll view, not as the well's `pad`: the text then scrolls
+to the well's edge instead of being cut at the inset. In the machined finish a well without its edge still shows its
+carved lip; that is the toolkit's well, the same as the licences'.
 
 ## Subtle points
 

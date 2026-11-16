@@ -1,7 +1,8 @@
 package atelier
 
 // atelier installs itself, as every program of the suite (gui_toolkit's setup, through prefs_page.Install): the program in
-// %LOCALAPPDATA%\Programs\atelier (~/.local/share/atelier on Linux), its menu entry, its record (Settings > Apps, whose
+// the vendor's folder, as the others (%LOCALAPPDATA%\Programs\FromentSoftware\Atelier, ~/.local/opt/FromentSoftware/Atelier
+// on Linux), its menu entry, its record (Settings > Apps, whose
 // Uninstall runs `atelier --setup`), and on the PATH when the person ticks it. The person opens it again from the menu to
 // add a program later. No start offers it in a dialog: atelier's own row of the Programs step installs it (own.odin).
 // The settings' Installation page shows the install and acts on it.
@@ -46,7 +47,7 @@ atelier_identity :: proc() -> desktop.Identity {
 // What the setup knows of atelier.
 setup_options :: proc() -> setup.Setup_Options {
 	return setup.Setup_Options{
-		identity = atelier_identity(), version = APP_VERSION, install_folder = APP_NAME, icons = ICON_PNGS[:],
+		identity = atelier_identity(), version = APP_VERSION, icons = ICON_PNGS[:],
 		vendor_url = VENDOR_URL,
 		choices = SETUP_CHOICES[:], running = app_running, quit = app_quit_ask,
 		prepare = proc(o: ^desktop.Integration_Options, choices: []bool, user: rawptr) {
