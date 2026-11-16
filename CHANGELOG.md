@@ -5,6 +5,16 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-16 13:32
+
+### Changed
+- **The settings, the palette and the setup of the suite's newest toolkit**:
+  - In the command palette, Enter on a setting that is no switch opens its control under its row; Shift+Enter shows the setting in the settings page.
+  - The setup page (`atelier --setup`, Settings > Installation) shows Atelier's logo, its state beside its version, and its options as switches.
+  - A logout or a shutdown while Atelier runs no longer shows a crash report at the next start.
+- **The suite's spacing, cards and wells**: Atelier's pages use the same spacing, cards and lists as the other programs of the suite. The cards have the suite's rounder corners, and a failed install's output is a well carved in its row, as the licences' texts are.
+- **Atelier installs itself in Froment Software's folder**, as every program of the suite: `%LOCALAPPDATA%\Programs\FromentSoftware\Atelier` on Windows, `~/.local/opt/FromentSoftware/Atelier` on Linux. On Windows an install made before stays where it is. On Linux, Atelier 0.6.1 or earlier installed in `~/.local/share/atelier`: after this update its row reads "Repair" and is ticked. Install it once more and the menu opens the new copy; then you can delete the folder `~/.local/share/atelier`.
+
 ## [0.6.1] - 2026-11-16 05:21
 
 ### Changed
@@ -97,6 +107,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.7.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.0
 [0.6.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.6.1
 [0.6.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.6.0
 [0.5.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.5.1
