@@ -33,6 +33,17 @@ Every step is a command of `tools/ateliertool` (`help` lists them):
 - Comments and commit messages are in English. Comments say why.
 - Commits: author and committer `sachahjkl <sacha@sacha.house>`, no attribution trailer, no session link.
 
+## Changelog
+
+- `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning. It is never
+  edited by hand.
+- A change a user can see is one fragment in `changelog.d/`, in the same commit: `<yyyymmdd-hhmmss>-<subject>.md`, line 1
+  `type: <Added|Changed|Deprecated|Removed|Fixed|Security>`, an empty line, then one entry that starts with a bold
+  summary and says what changed for the user. `changelog.d/README.md` gives the format; `ateliertool changelog new`
+  writes one.
+- `ateliertool ship` moves the fragments into the version's section of `CHANGELOG.md` and deletes them;
+  `ateliertool check` checks them.
+
 ## Roadmap
 
 - `ROADMAP.md`, beside `CHANGELOG.md`, holds atelier's planned work: `# Roadmap`, then `## Now`, `## Next` and
