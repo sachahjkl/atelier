@@ -312,7 +312,8 @@ live_open_papier :: proc(sway: ^toolbox.Sway, env: []string, bundle, data, home:
 	// (a runner whose Vulkan the released file cannot reach: papier gets no surface and ends. That is the machine's,
 	// not atelier's: the question of a program that runs is not tried here, the rest is)
 	log_text, _ := os.read_entire_file(fmt.tprintf("%s/window/papier.log", LIVE_DIR), context.temp_allocator)
-	if strings.contains(string(log_text), "wgpuInstanceCreateSurface") {
+	// (a program on gui_toolkit before 0.278.0 aborts in wgpu; a later one says so in a sentence and ends)
+	if strings.contains(string(log_text), "wgpuInstanceCreateSurface") || strings.contains(string(log_text), "no graphics device this program can draw with") {
 		fmt.println("live: papier cannot open a window on this machine (no Vulkan surface for it): the question of a program that runs is not tried here")
 		return p, true, true
 	}
