@@ -67,7 +67,7 @@ settings_options :: proc(app: ^App) -> prefs_page.Page_Options {
 		file = app.prefs_path,
 		version = APP_TITLE + " " + APP_VERSION,
 		themes = app.themes_file.all[:], themes_light = app.theme_shown.light, themes_file = &app.themes_file,
-		install = &app.install, diagnostics = &app.main,
+		install = &app.install, diagnostics = prefs_page.diagnostics_of(&app.main),
 	}
 }
 

@@ -124,7 +124,8 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	app.prefs = prefs^
 	prefs^ = {}
 	app.settings = prefs_read(&app.prefs)
-	prefs_page.install_init(&app.install, &app.prefs, setup_options())
+	// (the announcer is filled once the window is open: the install says through it what it changed)
+	prefs_page.install_init(&app.install, &app.prefs, setup_options(), &app.announcer)
 	// (general.language is in the registry, and nothing is shown yet: every text from here on is in its language)
 	prefs_page.language_start(&app.prefs, PROGRAM_CATALOGUES)
 	// (the demo writes nothing: its pictures come from a run that leaves no trace)
