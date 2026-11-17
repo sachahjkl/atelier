@@ -5,6 +5,14 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-11-17 11:39
+
+### Changed
+- **The suite's newest toolkit**:
+  - Buttons, fields and lists to choose from have one height, so the controls side by side line up.
+  - In a narrow window, the title bar cuts its steps and keeps the window's buttons, and a long program name is cut before the program's state at the end of its row.
+  - The sheet of the keys (F1) and the other dialogs called by a key appear at once, at their size.
+
 ## [0.7.1] - 2026-11-17 05:19
 
 ### Changed
@@ -112,6 +120,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.7.2]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.2
 [0.7.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.1
 [0.7.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.0
 [0.6.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.6.1
