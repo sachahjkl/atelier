@@ -14,7 +14,6 @@ import cli "gt:cli"
 import toolbox "gt:toolbox"
 
 SHOTS_DIR  :: "build/shots"
-SHOTS_PORT :: 9372
 SHOTS_OUT  :: "docs/screenshots"
 SHOTS_SITE :: "site/img"
 // (a bound, not a delay: a loaded machine draws a software-rendered sway slowly, and a step's first frame can take seconds)
@@ -58,7 +57,7 @@ run_shots :: proc(args: []string) -> cli.Exit {
 	if len(args) == 2 && args[0] == "--out" { out = args[1] }
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
 	if !os.exists(bundle) && run_bundle(nil) != .Done { return .Failed }
-	if run_build(nil) != .Done { return .Failed }   // (a debug build: it has the DevTools server)
+	if !toolbox.program_build(build_options()) { return .Failed }   // (a debug build: it has the DevTools server)
 	_ = os.make_directory_all(out)
 	toolbox.guard_groups()
 	failed := false
@@ -77,23 +76,14 @@ run_shots :: proc(args: []string) -> cli.Exit {
 // One picture: a sway of its own, atelier on the step, its frame once the text shows.
 @(private = "file")
 take :: proc(s: Shot, bundle, out: string) -> bool {
-	sway: toolbox.Sway
-	if why := toolbox.sway_start(&sway, SHOTS_DIR, {config = SHOTS_SWAY, homes = true}); why != "" { fmt.eprintln(why); return false }
-	defer toolbox.sway_stop(&sway)
-	devtools := fmt.tprintf("TOOLKIT_DEVTOOLS=%d", SHOTS_PORT)
 	command := make([dynamic]string, context.temp_allocator)
 	append(&command, PROGRAM, "--demo", "--look=dark", "--bundle", bundle, "--step", s.step)
 	append(&command, ..s.flags)
-	p, why := toolbox.sway_program(&sway, command[:], {devtools}, fmt.tprintf("%s/atelier.log", sway.dir))
+	session: toolbox.Program_Session
+	defer toolbox.program_session_stop(&session)
+	if why := toolbox.program_session_start(&session, SHOTS_DIR, {command = command[:], desktop = {config = SHOTS_SWAY, homes = true}, wait = SHOTS_WAIT}); why != "" { fmt.eprintln(why); return false }
+	c, why := toolbox.program_session_connect(&session)
 	if why != "" { fmt.eprintln(why); return false }
-	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
-	c: cdp.Client
-	ok := false
-	deadline := time.tick_add(time.tick_now(), SHOTS_WAIT)
-	for !ok && time.tick_diff(time.tick_now(), deadline) > 0 {
-		if c, ok = cdp.connect(SHOTS_PORT); !ok { time.sleep(SHOTS_POLL) }
-	}
-	if !ok { fmt.eprintln("the window does not answer"); return false }
 	defer cdp.close(&c)
 	if !cdp.wait_for(&c, s.seen, SHOTS_WAIT) { fmt.eprintfln("%q never showed", s.seen); return false }
 	cdp.wait_idle(&c, SHOTS_WAIT)

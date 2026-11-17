@@ -8,26 +8,6 @@ import toolbox "gt:toolbox"
 
 VERSION_MARK :: "{{version}}"
 
-SITE_META :: tk_site.Meta{
-	url         = "https://atelier.froment.software/",
-	name        = "Atelier",
-	repository  = REPOSITORY,
-	tagline     = "The working man's tools, by Froment Software",
-	changes     = "CHANGELOG.md",
-	card        = "img/main.png",
-	logo        = "img/logo.png",
-	logo_file   = "site/img/logo.png",
-	theme       = "#111113",
-	accent      = "#ec7a43",
-	author      = "Sacha Froment",
-	author_url  = "https://froment.software",
-	publisher   = "Froment Software",
-	ld_type     = "SoftwareApplication",
-	root_domain = false,   // (github.io answers for /robots.txt and /favicon.ico, not the site)
-	publisher_logo = "img/froment-software-64.png",
-	licence     = "MIT",
-}
-
 // The home page's download, for the reader's system (Windows first: what a phone or an unknown system is offered).
 @(rodata)
 SITE_DOWNLOADS := [?]tk_site.Download{
@@ -43,7 +23,7 @@ SITE_LD := [?][2]string{
 }
 
 site_meta :: proc() -> tk_site.Meta {
-	m := SITE_META
+	m := tk_site.meta_default("Atelier", "https://atelier.froment.software/", REPOSITORY, "The working man's tools, by Froment Software", "#111113", "#ec7a43")
 	m.ld_fields = SITE_LD[:]
 	return m
 }

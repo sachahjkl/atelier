@@ -14,44 +14,10 @@ import atelier_update "../../src/update"
 
 DIST :: "build/dist"
 
-run_build :: proc(args: []string) -> cli.Exit {
+// build, test and check are the toolkit's (toolbox.build_commands): atelier's program alone, its French catalogue checked.
+build_options :: proc() -> toolbox.Build_Options {
 	p := project()
-	release := len(args) > 0 && args[0] == "release"
-	if !toolbox.build_native(p) { return .Failed }
-	_ = os.make_directory("build")
-	extra := make([dynamic]string, context.temp_allocator)
-	append(&extra, fmt.tprintf("-out:%s", PROGRAM), release ? "-o:speed" : "-debug")
-	// (Windows: no console of its own; `atelier list` and `install` write to the parent's through the launcher)
-	when ODIN_OS == .Windows {
-		if release { append(&extra, "-subsystem:windows") }
-	}
-	if !toolbox.run(toolbox.odin_command(p, "build", "", extra[:]), {echo = true}) { return .Failed }
-	fmt.printfln("built %s", PROGRAM)
-	return .Done
-}
-
-run_test :: proc(args: []string) -> cli.Exit {
-	p := project()
-	if !toolbox.build_native(p) { return .Failed }
-	_ = os.make_directory("build")
-	out := fmt.tprintf("-out:build/test_src%s", ODIN_OS == .Windows ? ".exe" : "")
-	return toolbox.ended(toolbox.run(toolbox.odin_command(p, "test", "src", {out}), {echo = true}))
-}
-
-run_check :: proc(args: []string) -> cli.Exit {
-	p := project()
-	if !changelog_check(p) { return .Failed }
-	if !toolbox.check_scopes("src") { return .Failed }
-	// (a text of the code not in the catalogue, or not translated, shows in English to a French reader)
-	if problem := toolbox.i18n_catalogue(I18N.dirs, "i18n/fr.txt", "fr", true); problem != "" { fmt.eprintln(problem); return .Failed }
-	if !toolbox.run(toolbox.odin_command(p, "check"), {echo = true}) { return .Failed }
-	when ODIN_OS != .Windows {
-		if !toolbox.check_windows(p) { return .Failed }
-	}
-	if !toolbox.run({"odin", "check", "tools/ateliertool", fmt.tprintf("-collection:gt=%s/src", toolbox.toolkit_dir(p)), "-vet"}, {echo = true}) { return .Failed }
-	if run_test(nil) != .Done { return .Failed }
-	if run_build({"release"}) != .Done { return .Failed }
-	return toolbox.ended(toolbox.check_launcher(p))
+	return {project = p, changelog_command = changelog.command(p), catalogues = I18N}
 }
 
 // `package [version]`: the release build, this platform's bundle written after it, its .sha256 beside it, and the
@@ -71,7 +37,7 @@ run_package :: proc(args: []string) -> cli.Exit {
 	}
 	signed := os.get_env(toolbox.UPDATE_KEY_ENV, context.temp_allocator) != ""
 	if len(args) > 0 && !signed { fmt.eprintfln("package: a release signs its update manifest: set %s", toolbox.UPDATE_KEY_ENV); return .Failed }
-	if run_build({"release"}) != .Done { return .Failed }
+	if !toolbox.program_build(build_options(), release = true) { return .Failed }
 	_ = os.make_directory_all(DIST)
 	// (the name the updater expects of the release's file: atelier-<version>-<platform>, .exe on Windows)
 	out := fmt.tprintf("%s/%s", DIST, update.expected_file_name(atelier_update.PRODUCT, version, update.PLATFORM, context.temp_allocator))
@@ -100,14 +66,4 @@ run_package :: proc(args: []string) -> cli.Exit {
 	}
 	fmt.printfln("package: %s%s", out, signed ? "" : " (unsigned: no update manifest)")
 	return .Done
-}
-
-// The fragments of changelog.d/ and the roadmap, as `changelog check` says them.
-@(private = "file")
-changelog_check :: proc(p: toolbox.Project) -> bool {
-	q := p
-	errors, n := changelog.check(changelog.project_options(&q))
-	for e in errors { fmt.eprintln("changelog:", e) }
-	if len(errors) == 0 { fmt.printfln("changelog: %d fragments, all well formed", n) }
-	return len(errors) == 0
 }

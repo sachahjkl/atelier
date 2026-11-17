@@ -62,7 +62,7 @@ settings_build :: proc(app: ^App) {
 settings_options :: proc(app: ^App) -> prefs_page.Page_Options {
 	return {
 		user = app, changed = settings_changed, problem = settings_problem,
-		updater = app.updater, restart = proc(user: rawptr) { app_restart((^App)(user)) },
+		updater = app.updates.updater, restart = proc(user: rawptr) { app_restart((^App)(user)) },
 		pages = SETTINGS_PAGES[:], icon_font = ui.lucide_icons(), search_icon = lucide.SEARCH, reset_icon = lucide.ROTATE_CCW,
 		file = app.prefs_path,
 		version = APP_TITLE + " " + APP_VERSION,
@@ -78,6 +78,5 @@ settings_changed :: proc(user: rawptr, name: string) {
 	settings_free(&app.settings)
 	app.settings = prefs_read(&app.prefs)
 	app.announcer.mode = app.settings.messages
-	updates_auto(app)
 	app_title_follow(app)
 }

@@ -33,7 +33,6 @@ PREF_DEFS := [?]config.Def{
 Settings :: struct {
 	look:         prefs_page.Appearance,   // appearance.theme, mode, finish, glow, font_size
 	system_title: bool,                    // window.system_title
-	update_auto:  bool,
 	messages:     ui.Announce_Mode,        // general.messages: where the update's notices are said
 	ticked:       bool,                    // programs.ticked
 }
@@ -72,7 +71,6 @@ prefs_open :: proc(p: ^config.Prefs, args: []string, descriptions := context.all
 prefs_read :: proc(p: ^config.Prefs, allocator := context.allocator) -> (s: Settings) {
 	s.look = prefs_page.appearance_read(p, allocator)
 	s.system_title = config.bool_of(p, prefs_page.SYSTEM_TITLE_PREF)
-	s.update_auto = config.bool_of(p, prefs_page.UPDATE_AUTO_PREF)
 	s.messages = prefs_page.announce_mode(p)
 	s.ticked = config.bool_of(p, TICKED_PREF)
 	return

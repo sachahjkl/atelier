@@ -40,9 +40,6 @@ import update "gt:update"
 // The window's size at its first start, in logical pixels (then the toolkit's window.placement keeps it).
 WINDOW_SIZE :: [2]int{820, 640}
 
-// Frames owed after an event (what it set off settles: the layout of a step that just showed).
-FRAMES_AFTER_INPUT :: 3
-
 // The program's catalogues of the languages it speaks besides English (i18n/<language>.txt, written by the i18n tool).
 PROGRAM_CATALOGUES :: []i18n.Catalog{{"fr", #load("../i18n/fr.txt", string)}}
 
@@ -98,11 +95,8 @@ App :: struct {
 
 	// atelier's own install and updates (setup_view.odin, updates.odin)
 	install:        prefs_page.Install,
-	setup_known:    bool,              // the start's reading of the install came (setup_follow)
-	installed_copy: bool,              // this program is the installed copy: it updates itself (update.auto)
-	updater:        ^update.Updater,   // nil in the demo
-	update_serial:  int,               // the updater's state last said
-	update_phase:   update.Phase,      // ... and its phase, for the builds (they never ask the updater)
+	updates:        prefs_page.Updates,   // its updater nil in the demo
+	update_phase:   update.Phase,         // the updater's phase last said, for the builds (they never ask the updater)
 	launch_after:   string,            // this program again after an update, started once this one has ended (owned)
 	launch_after_update: bool,         // ... with --after-update: the suite's update goes on in the new copy
 
@@ -125,10 +119,8 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	app.demo, app.demo_case, app.after_update, app.copied = opts.demo, opts.demo_case, opts.after_update, -1
 	// (read once, before the window: no frame reads the clock)
 	app.started_ms = time.to_unix_nanoseconds(time.now()) / 1_000_000
-	if opts.last_crash != "" {
-		log.warnf("the last run ended without its clean end: %s", opts.last_crash)
-		crash_bar.init(&app.crash_bar, opts.last_crash)
-	}
+	// (host.program_start said it in the log)
+	if opts.last_crash != "" { crash_bar.init(&app.crash_bar, opts.last_crash) }
 	app.prefs = prefs^
 	prefs^ = {}
 	app.settings = prefs_read(&app.prefs)
@@ -173,7 +165,6 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	// (Lucide: the icons of the steps, the palette, the settings; one face, the one ui.lucide_icons gives the widgets)
 	icons, _ := font.load_embedded(&app.shared.fonts, lucide.DATA)
 	h.state.icon_font, h.state.lucide_font = icons, icons
-	h.after_input = FRAMES_AFTER_INPUT
 	h.params = app_params
 	h.background = ui.theme_lookup(&app.shared.theme, {}, "background")
 	// (TOOLKIT_DEVTOOLS=<port>: the window driven and captured over the DevTools protocol, for ateliertool shots and live)
@@ -188,14 +179,14 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 		if len(app.rows) > 0 { app.rows[0].logo, app.rows[0].logo_size = app.logo, app.logo_size }
 	}
 	// (the vendor's mark in the "By" line of the install's dialog and of the Installation page: made before either opens)
-	if mark, ok := setup.logo_make(&app.shared.r, VENDOR_MARK_PNG, {16, 16}); ok { app.install.vendor_mark = mark }
+	prefs_page.install_vendor_mark(&app.install, &app.shared.r, VENDOR_MARK_PNG)
 	if app.bundle != nil { start_ask(app) }
 	app.step = opts.step
 	if app.demo { demo_step(app, opts.step, opts.finished) }
 	// (the demo reaches no network and reads no install: the pictures show the steps alone)
 	if !app.demo {
 		updates_start(app)
-		// (the install read on a task: setup_follow. Never offered at the start: atelier's own row of the Programs step
+		// (the install read on a task: updates_follow applies update.auto once it is known. Never offered at the start: atelier's own row of the Programs step
 		// installs it, src/md/README.md "atelier's own row")
 		prefs_page.install_offer(&app.install, &h.state, offer = false)
 	}
@@ -236,7 +227,6 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	}
 	// (app.logo is the install's logo: freed once, with it)
 	setup.logo_destroy(&app.shared.r, &app.install.logo)
-	setup.logo_destroy(&app.shared.r, &app.install.vendor_mark)
 	// (after the last build, while the window's State is there: which views were open is written)
 	ui.views_destroy(&app.views)
 	host.host_close(h)
@@ -329,18 +319,11 @@ app_instance_name :: proc() -> string {
 	return instance.key(ODIN_DEBUG ? "atelier.dev" : "atelier", platform.user_dir(.Config, "", context.temp_allocator))
 }
 
-// How long a message to the running atelier waits for its answer.
-APP_MESSAGE_WAIT_MS :: 2000
-
 // Whether an atelier runs and answers (--status: setup.Setup_Options.running).
-app_running :: proc() -> bool {
-	return instance.send({name = app_instance_name(), wait_ms = APP_MESSAGE_WAIT_MS}, transmute([]u8)string(instance.MESSAGE_PING)) == .Forwarded
-}
+app_running :: proc() -> bool { return instance.running({name = app_instance_name()}) }
 
 // Asks the running atelier to end, as its Quit does (--quit: setup.Setup_Options.quit).
-app_quit_ask :: proc() -> bool {
-	return instance.send({name = app_instance_name(), wait_ms = APP_MESSAGE_WAIT_MS}, transmute([]u8)string(instance.MESSAGE_QUIT)) == .Forwarded
-}
+app_quit_ask :: proc() -> bool { return instance.quit({name = app_instance_name()}) }
 
 // A message of another process (on the instance's thread): a ping, a request to end, or a second start's launcher's
 // activation token, handed to the window's thread.
@@ -368,7 +351,7 @@ app_message_raise :: proc(data: rawptr, word: u64) {
 	app := the_app
 	if app == nil || app.closing { return }
 	platform.raise_window_token(app.main.win, token)
-	app.main.settle = max(app.main.settle, FRAMES_AFTER_INPUT)
+	host.host_settle(&app.main)
 }
 
 ////////////////////////////////

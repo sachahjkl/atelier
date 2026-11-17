@@ -38,12 +38,12 @@ I18N := toolbox.I18n_Catalogues{dirs = {"src"}, folder = "i18n"}
 commands :: proc() -> []toolbox.Command {
 	p := project()
 	// (notes and ship are the toolkit's; package is atelier's own: the program with the bundle after it)
-	r := release.commands({project = p, dist = DIST, check = proc() -> cli.Exit { return run_check(nil) }})
+	r := release.commands({project = p, dist = DIST, check = proc() -> cli.Exit { return toolbox.ended(toolbox.program_check(build_options())) }})
+	// (the build carries no programs: --bundle reads them)
+	b := toolbox.build_commands(build_options())
 	list := make([dynamic]toolbox.Command, context.temp_allocator)
 	append(&list,
-		toolbox.Command{name = "build", usage = "[release]: the toolkit's text library when its sources changed, then build/atelier (no programs carried: --bundle reads them)", run = run_build},
-		toolbox.Command{name = "test", usage = ": the tests of the program", run = run_test},
-		toolbox.Command{name = "check", usage = ": the changelog and the roadmap, the scopes, the French catalogue, odin check for this system and Windows and of this tool (-vet), the tests, a release build", run = run_check},
+		b[0], b[1], b[2],
 		toolbox.Command{name = "bundle", usage = "[linux-x64|windows-x64] [--out file]: the programs' latest releases, checked, in build/bundle-<platform>.zip", run = run_bundle},
 		toolbox.Command{name = "package", usage = "[version]: build/dist/atelier-<version>-<platform>: the release build with this platform's bundle after it, its .sha256, and its update manifest signed by $UPDATE_SIGNING_KEY (a release, with its version, needs the key)", run = run_package},
 		toolbox.Command{name = "update", usage = "keygen <file> | pubkey | manifest <file> <version> - <out> | verify <manifest> -: atelier's update key and manifests", run = proc(args: []string) -> cli.Exit { return toolbox.update_command(atelier_update.PRODUCT, args) }},

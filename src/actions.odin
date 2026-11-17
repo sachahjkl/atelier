@@ -56,7 +56,7 @@ action_enabled :: proc(app: ^App, a: Action) -> bool {
 	case .Select_All, .Select_None: return has && app.step == .Programs && app.known
 	case .Accept_Install:           return has && app.step == .Licences && licences_ready(app) && chosen_count(app) > 0
 	case .Retry_Failed:             return has && retry_possible(app)
-	case .Check_Updates:            return app.updater != nil
+	case .Check_Updates:            return app.updates.updater != nil
 	case .Update_Suite:             return suite_update_possible(app)
 	case .Install_Atelier:          return !app.demo
 	case .Settings, .Shortcuts, .Quit: return true
@@ -133,7 +133,7 @@ Can_Act_Key :: struct {
 
 @(private = "file")
 can_act_key :: proc(app: ^App) -> (k: Can_Act_Key) {
-	k = {made = true, step = app.step, known = app.known, chosen = chosen_count(app), ready = licences_ready(app), updater = app.updater != nil,
+	k = {made = true, step = app.step, known = app.known, chosen = chosen_count(app), ready = licences_ready(app), updater = app.updates.updater != nil,
 		look = app.look, phase = app.update_phase, suite = app.suite_version != ""}
 	for r, i in app.rows {
 		if i >= 64 { break }

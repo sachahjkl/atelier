@@ -14,6 +14,7 @@ import "core:strings"
 import "core:time"
 import cdp "gt:cdp"
 import cli "gt:cli"
+import json "gt:json"
 import toolbox "gt:toolbox"
 
 LIVE_DIR :: "build/live"
@@ -21,7 +22,7 @@ LIVE_DIR :: "build/live"
 run_live :: proc(args: []string) -> cli.Exit {
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
 	if !os.exists(bundle) && run_bundle(nil) != .Done { return .Failed }
-	if run_build(nil) != .Done { return .Failed }
+	if !toolbox.program_build(build_options()) { return .Failed }
 	_ = os.remove_all(LIVE_DIR)
 	here, _ := os.get_working_directory(context.temp_allocator)
 	home := fmt.tprintf("%s/%s/home", here, LIVE_DIR)
@@ -82,22 +83,12 @@ run_live :: proc(args: []string) -> cli.Exit {
 // the Programs step with its line. The update itself needs a newer release on GitHub: its pure parts are suite_test's.
 @(private = "file")
 live_after_update :: proc() -> bool {
-	sway: toolbox.Sway
-	if why := toolbox.sway_start(&sway, fmt.tprintf("%s/after", LIVE_DIR), {config = SHOTS_SWAY, homes = true, cache = true}); why != "" { fmt.eprintln("live:", why); return false }
-	defer toolbox.sway_stop(&sway)
-	home := fmt.tprintf("%s/home", sway.dir)
-	_ = os.make_directory_all(home)
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
-	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--after-update"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT)}, fmt.tprintf("%s/after/atelier.log", LIVE_DIR))
-	if why != "" { fmt.eprintln("live:", why); return false }
-	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
-	c: cdp.Client
-	ok := false
-	deadline := time.tick_add(time.tick_now(), SHOTS_WAIT)
-	for !ok && time.tick_diff(time.tick_now(), deadline) > 0 {
-		if c, ok = cdp.connect(LIVE_PORT); !ok { time.sleep(SHOTS_POLL) }
-	}
-	if !ok { fmt.eprintln("live: the window after the update does not answer"); return false }
+	session: toolbox.Program_Session
+	defer toolbox.program_session_stop(&session)
+	if why := toolbox.program_session_start(&session, fmt.tprintf("%s/after", LIVE_DIR), {command = {PROGRAM, "--bundle", bundle, "--after-update"}, desktop = {config = SHOTS_SWAY, homes = true, cache = true}, wait = SHOTS_WAIT}); why != "" { fmt.eprintln("live:", why); return false }
+	c, why := toolbox.program_session_connect(&session)
+	if why != "" { fmt.eprintln("live: the window after the update:", why); return false }
 	defer cdp.close(&c)
 	// (the up-to-date line, then the Programs step's own button)
 	for words in ([]string{"choose what to update", "Select all"}) {
@@ -131,11 +122,13 @@ live_own_installed :: proc(list, data: string) -> bool {
 	return ok
 }
 
-LIVE_PORT :: 9373
 LIVE_WAIT :: 120 * time.Second   // (five programs installed side by side, on a CI's runner)
 
 // The window's way: atelier in a sway nobody sees (its own homes: sway_start's), driven over the DevTools protocol through
 // every step, the programs installed side by side; then `list` must say each one is installed.
+//
+// Not a toolbox.Program_Session: papier is installed and started in the desktop before atelier, which the session
+// (desktop and program started at once) cannot do. Its parts are the toolkit's: a free port, a bounded connection.
 @(private = "file")
 live_window :: proc() -> bool {
 	toolbox.guard_groups()
@@ -144,12 +137,13 @@ live_window :: proc() -> bool {
 	defer toolbox.sway_stop(&sway)
 	// (sway_start's homes give HOME, XDG_DATA_HOME... of the session's own: an install in ~/.local/opt and the PATH's
 	// link in ~/.local/bin stay in it)
-	home := fmt.tprintf("%s/home", sway.dir)
-	_ = os.make_directory_all(home)
 	env := sway.env
 	bundle := fmt.tprintf("build/bundle-%s.zip", THIS_PLATFORM)
-	data := ""
-	for e in env { if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] } }
+	home, data := "", ""
+	for e in env {
+		if strings.has_prefix(e, "HOME=") { home = e[len("HOME="):] }
+		if strings.has_prefix(e, "XDG_DATA_HOME=") { data = e[len("XDG_DATA_HOME="):] }
+	}
 	// A program that runs: papier installed, its manifest taken away (to repair: its box is ticked), its installed copy
 	// started. The window must ask, close it and install it.
 	open, ok_open, windowless := live_open_papier(&sway, env, bundle, data, home)
@@ -162,16 +156,16 @@ live_window :: proc() -> bool {
 		_ = os.make_directory_all(filepath.dir(obstacle))
 		if os.write_entire_file(obstacle, transmute([]u8)string("not a folder\n")) != nil { fmt.eprintfln("live: %s cannot be written", obstacle); return false }
 	}
-	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--look=dark"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", LIVE_PORT)}, fmt.tprintf("%s/window/atelier.log", LIVE_DIR))
+	port, free := toolbox.free_port()
+	if !free { fmt.eprintln("live: no free port on 127.0.0.1 for the DevTools server"); return false }
+	log := fmt.tprintf("%s/window/atelier.log", LIVE_DIR)
+	p, why := toolbox.sway_program(&sway, {PROGRAM, "--bundle", bundle, "--look=dark"}, {fmt.tprintf("TOOLKIT_DEVTOOLS=%d", port)}, log)
 	if why != "" { fmt.eprintln("live:", why); return false }
+	c, ok, ended := cdp.connect_wait(port, SHOTS_WAIT, p)
+	if ended.exited { fmt.eprintfln("live: atelier ended (%d) before its window answered (%s)", ended.exit_code, log); return false }
+	// (one that ended was collected by connect_wait: only one that runs is stopped and waited for)
 	defer { _ = os.process_kill(p); _, _ = toolbox.sway_wait(&sway, p, SHOTS_WAIT) }
-	c: cdp.Client
-	ok := false
-	deadline := time.tick_add(time.tick_now(), SHOTS_WAIT)
-	for !ok && time.tick_diff(time.tick_now(), deadline) > 0 {
-		if c, ok = cdp.connect(LIVE_PORT); !ok { time.sleep(SHOTS_POLL) }
-	}
-	if !ok { fmt.eprintln("live: the window does not answer"); return false }
+	if !ok { fmt.eprintfln("live: the window does not answer (%s)", log); return false }
 	defer cdp.close(&c)
 	step :: proc(c: ^cdp.Client, wait, click: string, limit: time.Duration) -> bool {
 		if !cdp.wait_for(c, wait, limit) {
@@ -185,7 +179,7 @@ live_window :: proc() -> bool {
 			// (the last box with the words: the button, under a paragraph that may hold the same words)
 			found := cdp.find(c, click)
 			if len(found) == 0 { fmt.eprintfln("live: no button %q", click); return false }
-			if _, ok := cdp.call(c, "Toolkit.click", fmt.tprintf(`{{"text":%s,"index":%d,"count":1,"button":"left"}}`, cdp.quote(click), len(found) - 1)); !ok {
+			if _, ok := cdp.call(c, "Toolkit.click", fmt.tprintf(`{{"text":%s,"index":%d,"count":1,"button":"left"}}`, json.quote(click), len(found) - 1)); !ok {
 				fmt.eprintfln("live: %q cannot be clicked", click)
 				return false
 			}
@@ -250,7 +244,7 @@ live_click_exact :: proc(c: ^cdp.Client, text: string) -> bool {
 		fmt.eprintfln("live: no button %q (the window: %s)", text, shot)
 		return false
 	}
-	if _, ok := cdp.call(c, "Toolkit.click", fmt.tprintf(`{{"text":%s,"index":%d,"count":1,"button":"left"}}`, cdp.quote(text), i)); !ok {
+	if _, ok := cdp.call(c, "Toolkit.click", fmt.tprintf(`{{"text":%s,"index":%d,"count":1,"button":"left"}}`, json.quote(text), i)); !ok {
 		fmt.eprintfln("live: %q cannot be clicked", text)
 		return false
 	}

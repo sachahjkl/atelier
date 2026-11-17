@@ -34,7 +34,7 @@ view_build :: proc(h: ^host.Host, size: host.Vec2) {
 	app := (^App)(h.user)
 	em := ui.font_size()
 	// (the user's themes file: a task looks at it now and then, and reads it when it changed; app_params shows it)
-	if prefs_page.themes_file_poll(&app.themes_file, &h.state) { h.settle = max(h.settle, FRAMES_AFTER_INPUT) }
+	if prefs_page.themes_file_poll(&app.themes_file, &h.state) { host.host_settle(h) }
 	// (the dialogs, the floating views, the docked ones: around the page, and over it)
 	if ui.views_frame(&app.views) {
 		view_keys(app)
@@ -118,20 +118,25 @@ title_bar :: proc(app: ^App, em: f32) {
 		}
 		ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0, font_size = math.round(em * 1.1)})
 		ui.label(APP_TITLE + "###name")
-		ui.spacer(ui.fill())
-		if app.settings_open {
-			if ui.tags("weak") {
-				ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0})
-				ui.label(fmt.tprintf("%s###settings_title", i18n.tr("Settings")))
+		// (the middle, centred in what the name and the buttons leave: a share that asks for no width (.Fits_Width), so
+		// a narrow window cuts the steps and keeps the window's buttons in it)
+		ui.next({width = ui.fill(), height = ui.pct(1)})
+		if ui.row(.Center, {.Clip, .Fits_Width}, "###middle") {
+			ui.spacer(ui.fill())
+			if app.settings_open {
+				if ui.tags("weak") {
+					ui.next({width = ui.text_size(), height = ui.pct(1), text_pad = 0})
+					ui.label(fmt.tprintf("%s###settings_title", i18n.tr("Settings")))
+				}
+			} else if app.bundle != nil {
+				steps(app, em)
 			}
-		} else if app.bundle != nil {
-			steps(app, em)
+			ui.spacer(ui.fill())
 		}
-		ui.spacer(ui.fill())
 		// (an update to install, coming, or in place: a button before the others; nothing otherwise)
-		if app.updater != nil {
+		if app.updates.updater != nil {
 			ui.next({height = ui.px(math.round(em * 1.9))})
-			if prefs_page.update_badge(app.updater, proc(user: rawptr) { app_restart((^App)(user)) }, app) != nil { ui.space(ui.CONTROL_GAP) }
+			if prefs_page.update_badge(app.updates.updater, proc(user: rawptr) { app_restart((^App)(user)) }, app) != nil { ui.space(ui.CONTROL_GAP) }
 		}
 		if app.settings_open {
 			if bar_button("###back", lucide.ARROW_LEFT, ui.key_tip(i18n.tr("Back to the steps"), {.Escape, {}}), em) { app.settings_open = false }
@@ -390,8 +395,10 @@ program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
 		ui.space(ui.ICON_GAP)
 		program_mark(r, em * MARK_EM, "###mark")
 		ui.space(ui.SPACE_3)
+		// (a share that asks for no width: a name and its version wider than it are cut, the state at the end stays in
+		// the card)
 		ui.next({width = ui.fill(), height = ui.children_sum(), axis = .Y})
-		if ui.column(id = "###words") {
+		if ui.column(flags = {.Clip, .Fits_Width}, id = "###words") {
 			line_next()
 			if ui.row(.Center, id = "###title") {
 				ui.next({width = ui.text_size(), height = ui.px(math.round(em * 1.5)), font_size = math.round(em * 1.1), text_pad = 0})

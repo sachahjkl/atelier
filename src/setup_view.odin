@@ -14,6 +14,7 @@ package atelier
 //   atelier --uninstall    the install taken away (the settings stay)
 //   atelier --status       what is installed, and whether atelier runs
 
+import "base:runtime"
 import "core:os"
 import desktop "gt:desktop"
 import i18n "gt:i18n"
@@ -29,25 +30,28 @@ ICON_PNGS := [?]desktop.Icon{
 	{256, #load("../assets/logo_256.png")},
 }
 
-// atelier to the desktop. No NixOS libraries: the toolkit would patch the installed file with patchelf, and the bundle
-// after the program must stay as it was written.
-atelier_identity :: proc() -> desktop.Identity {
-	return desktop.Identity{
-		name = APP_TITLE, key = "Atelier", slug = APP_NAME,
-		description = "The working man's tools: Froment Software's desktop programs, installed at once.",
-		vendor = VENDOR,
-		entry_marker = "X-Atelier-Integration", registry_mark = "AtelierIntegration", vendor_key = "FromentSoftware",
-		manifest_name = "atelier_install.txt",
-		generic_name = "Software Installer", categories = "System;PackageManager;Utility;", keywords = "install;programs;suite;froment;",
-		env_prefix = "ATELIER_DESKTOP_",
-		uninstall_arguments = "--setup",   // (Settings > Apps: the install's dialog, its Uninstall)
-	}
+// atelier to the desktop: its marks derived by the toolkit (desktop.identity_of), once, before main (its strings are
+// allocated, and the setup's jobs on workers share them). No NixOS libraries: the toolkit would patch the installed file
+// with patchelf, and the bundle after the program must stay as it was written.
+@(private = "file")
+atelier_identity: desktop.Identity
+
+@(init, private = "file")
+atelier_identity_init :: proc "contextless" () {
+	context = runtime.default_context()
+	id := desktop.identity_of(VENDOR, APP_TITLE, APP_NAME)
+	id.description = "The working man's tools: Froment Software's desktop programs, installed at once."
+	id.generic_name = "Software Installer"
+	id.categories = "System;PackageManager;Utility;"
+	id.keywords = "install;programs;suite;froment;"
+	id.uninstall_arguments = "--setup"   // (Settings > Apps: the install's dialog, its Uninstall)
+	atelier_identity = id
 }
 
 // What the setup knows of atelier.
 setup_options :: proc() -> setup.Setup_Options {
 	return setup.Setup_Options{
-		identity = atelier_identity(), version = APP_VERSION, icons = ICON_PNGS[:],
+		identity = atelier_identity, version = APP_VERSION, icons = ICON_PNGS[:],
 		vendor_url = VENDOR_URL,
 		choices = SETUP_CHOICES[:], running = app_running, quit = app_quit_ask,
 		prepare = proc(o: ^desktop.Integration_Options, choices: []bool, user: rawptr) {
@@ -64,19 +68,9 @@ SETUP_CHOICES := [?]setup.Choice{
 	{label = i18n.later("Atelier in the terminal (on the PATH)"), on = false, parts = {.Path}},
 }
 
-// Once the start's reading of the install came (prefs_page.install_offer): whether this is the installed copy, which
-// updates itself (update.auto).
-@(private = "file")
-setup_follow :: proc(app: ^App) {
-	if app.setup_known || !app.install.known { return }
-	app.setup_known = true
-	app.installed_copy = app.install.running_it
-	updates_auto(app)
-}
-
 // The install's machinery at each build: the work that ended, the dialog's answer. Opening the installed copy ends this
-// one (app_run starts it once the instance is let go).
+// one (app_run starts it once the instance is let go). Whether this is the installed copy, which updates itself, is
+// prefs_page.updates_follow's to read.
 setup_build :: proc(app: ^App) {
-	setup_follow(app)
 	if prefs_page.install_frame(&app.install) == .Launched { platform.request_close(app.main.win) }
 }

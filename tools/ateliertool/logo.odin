@@ -19,7 +19,6 @@ LOGO_SIZES  :: [?]int{16, 32, 64, 128, 256}
 LOGO_ICO    :: "assets/atelier.ico"
 LOGO_UNITS  :: 512.0
 LOGO_GRID   :: 16.0
-LOGO_SHRINK_STEP :: 4
 
 // The colours of each part: the edge that catches the light, its face under that edge, its foot. Graphite is lighter
 // than a real one and a little warm: the bench must stand out of a dark title bar. The work is the one saturated part.
@@ -99,7 +98,7 @@ detail_for :: proc(size: int) -> int { return size <= 24 ? 0 : size <= 48 ? 1 : 
 
 // The picture `pixels` wide, as it must look once shrunk to `size`.
 @(private = "file")
-logo_draw :: proc(pixels, size: int) -> paint.Canvas {
+logo_draw :: proc(pixels, size: int, _: rawptr) -> paint.Canvas {
 	detail := detail_for(size)
 	c := paint.canvas_make(pixels, pixels)
 	k := f32(pixels) / LOGO_UNITS
@@ -168,26 +167,13 @@ logo_draw :: proc(pixels, size: int) -> paint.Canvas {
 	return c
 }
 
-// The picture at `size`: drawn large, then shrunk in steps the cubic filter keeps clean.
-logo_render :: proc(size: int) -> paint.Canvas {
-	n := size
-	for n < LOGO_MASTER { n *= LOGO_SHRINK_STEP }
-	c := logo_draw(n, size)
-	for n > size {
-		next := max(n / LOGO_SHRINK_STEP, size)
-		small := paint.resize(c, next, next)
-		paint.canvas_destroy(&c)
-		c, n = small, next
-	}
-	return c
-}
-
 // The files of the logo (the `logo` command): assets/logo*.png, atelier.ico, .project/image.png and the site's logo.
+// Each size is drawn at the master's width or more, then shrunk (toolbox.logo_picture).
 logo :: proc() -> toolbox.Logo {
 	@(static) sizes := LOGO_SIZES
 	@(static) files := [?]toolbox.Logo_File{{path = "site/img/logo.png", size = 256}}
 	return {
-		render = proc(size: int, _: rawptr) -> paint.Canvas { return logo_render(size) },
+		draw = logo_draw,
 		dir = LOGO_DIR, master = LOGO_MASTER, sizes = sizes[:], ico = LOGO_ICO, project_image = true, files = files[:],
 	}
 }

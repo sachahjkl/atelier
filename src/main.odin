@@ -9,9 +9,8 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import config "gt:config"
-import crash "gt:crash"
+import host "gt:host"
 import instance "gt:instance"
-import tk_log "gt:log"
 import "gt:platform"
 import process "gt:process"
 import setup "gt:setup"
@@ -309,25 +308,15 @@ app_run_kept :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool)
 	if !o.demo {
 		message := platform.activation_token_from_env(context.temp_allocator)
 		outcome: instance.Outcome
-		outcome, o.owner = instance.acquire({name = app_instance_name(), wait_ms = 2000}, transmute([]u8)message)
+		outcome, o.owner = instance.acquire({name = app_instance_name()}, transmute([]u8)message)
 		if outcome == .Forwarded { return 0 }
 	}
 	// (the files keep the technical name; their folders are the vendor's)
-	logger := tk_log.install({program = APP_NAME, dir = tk_log.default_dir(APP_FOLDER, context.temp_allocator), echo = true})
-	code: int
-	{
-		context.logger = logger
-		crash.install({program = APP_NAME, report_dir = crash.default_report_dir(APP_FOLDER, context.temp_allocator), version = APP_VERSION, log_tail = {tk_log.tail, logger.data}})
-		crash.begin_session()
-		last, crashed := crash.last_report(context.temp_allocator)
-		// (the frames free the temporary memory: the report's path is kept on the heap)
-		if crashed { o.last_crash = strings.clone(last) }
-		code = app_run(o, prefs, setup_asked)
-		delete(o.last_crash)
-		crash.end_session()
-	}
-	tk_log.close(logger)
-	return code
+	p := host.program_start({name = APP_NAME, folder = APP_FOLDER, version = APP_VERSION})
+	defer host.program_end(&p)
+	context.logger = p.logger
+	o.last_crash = p.last_crash
+	return app_run(o, prefs, setup_asked)
 }
 
 // `atelier prefs`: each preference, its value, and what it does.

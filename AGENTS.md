@@ -15,8 +15,9 @@ Every step is a command of `tools/ateliertool` (`help` lists them):
   `build/atelier --bundle build/bundle-linux-x64.zip` reads them from a bundle.
 - `bundle [platform]` downloads the programs' latest releases, checks them, and writes `build/bundle-<platform>.zip`.
 - `package [version]` writes the release file: the release build with this system's bundle after it.
-- `check`: the changelog's fragments and the roadmap, the scopes, the French catalogue, `odin check -vet` (this system
-  and Windows), the tests, a release build.
+- `build`, `test` and `check` are the toolkit's (`toolbox.build_commands`). `check`: the changelog's fragments and the
+  roadmap, the scopes, the French catalogue, `odin check` (this system, Windows and macOS), the tool (`-vet`), the
+  tests, a release build.
 - `shots` makes the pictures, `ship <patch|minor|major|x.y.z>` a release, `site build` the site, `changelog new` a fragment,
   `i18n` the catalogues, `logo` the logo's files.
 - Linux: `nix develop` first (`flake.nix`).

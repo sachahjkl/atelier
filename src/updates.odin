@@ -7,59 +7,39 @@ package atelier
 // new versions too. Only the installed copy does it by itself (update.auto): a build, or a copy run where it was
 // downloaded, is updated when the settings' Check now asks. A copy from the Nix store is left to Nix.
 
-import "base:runtime"
 import "core:fmt"
 import "core:log"
 import "core:strings"
 import "core:time"
+import host "gt:host"
 import http "gt:http"
 import i18n "gt:i18n"
 import "gt:platform"
 import prefs_page "gt:prefs_page"
 import process "gt:process"
-import setup "gt:setup"
 import "gt:ui"
 import update "gt:update"
 import atelier_update "update"
 
-// The folder of the latest release's files: its manifests (update-<platform>.json and .sig) and its files.
-UPDATE_FOLDER :: "https://github.com/sachahjkl/atelier/releases/latest/download/"
-
-// (whether this is the installed copy comes with the start's reading of the install: setup_follow applies update.auto)
+// The toolkit's updates (prefs_page.Updates): the folder from update.base_url or atelier's latest release, update.auto for
+// the installed copy alone, the installed copy's manifest given the new version. What follows is atelier's: its words
+// and the suite's update.
 updates_start :: proc(app: ^App) {
-	// (update.base_url: read at the start)
-	folder, _ := prefs_page.update_source(&app.prefs)
-	app.updater = update.updater_start({
-		product = atelier_update.PRODUCT, folder = folder != "" ? folder : UPDATE_FOLDER, current = APP_VERSION,
-		exe = process.executable_path(), user_agent = fmt.tprintf("atelier/%s", APP_VERSION),
-		// (the updater's thread: the loop wakes, and updates_follow reads the state)
-		news = proc(user: rawptr) { platform.wake((^App)(user).main.win) }, user = app,
+	prefs_page.updates_start(&app.updates, {
+		product = atelier_update.PRODUCT, repository = "sachahjkl/atelier", version = APP_VERSION,
+		prefs = &app.prefs, install = &app.install, state = &app.main.state, window = app.main.win,
 	})
-	updates_auto(app)
 }
 
-updates_stop :: proc(app: ^App) {
-	if app.updater == nil { return }
-	update.updater_stop(app.updater)
-	app.updater = nil
-}
-
-// update.auto, read again when the preferences change.
-updates_auto :: proc(app: ^App) {
-	if app.updater == nil { return }
-	auto := app.settings.update_auto && app.installed_copy
-	update.set_auto(app.updater, auto ? .Install : .Off)
-}
+updates_stop :: proc(app: ^App) { prefs_page.updates_stop(&app.updates) }
 
 // At each turn of the loop: what changed is said once. The title bar's badge shows the phase; a toast says only what the
 // badge cannot (update.notice), and the answer to a check asked, in the suite's words.
 updates_follow :: proc(app: ^App) {
-	if app.updater == nil { return }
-	st := update.status(app.updater)
-	if st.serial == app.update_serial { return }
-	app.update_serial = st.serial
+	changed, st := prefs_page.updates_follow(&app.updates)
+	if !changed { return }
 	app.update_phase = st.phase
-	app.main.settle = max(app.main.settle, FRAMES_AFTER_INPUT)   // (the badge and the settings show the state)
+	host.host_settle(&app.main)   // (the badge and the settings show the state)
 	if words, bad := suite_notice(st); words != "" { ui.announce(&app.announcer, bad ? .Bad : .Good, words) }
 	// (a newer atelier on offer, or in place: what its bundle carries, for the banner and the rows)
 	#partial switch st.phase {
@@ -70,15 +50,6 @@ updates_follow :: proc(app: ^App) {
 	if st.phase == .Installed && app.suite_asked {
 		app.suite_asked = false
 		app_restart(app, after_update = true)
-	}
-	// (the installed copy: its manifest and Settings > Apps say the new version; written on a worker)
-	if st.phase == .Installed {
-		version := new_clone(strings.clone(st.version, runtime.heap_allocator()), runtime.heap_allocator())
-		ui.task(&app.main.state, proc(data: rawptr) {
-			version := (^string)(data)
-			defer { delete(version^, runtime.heap_allocator()); free(version, runtime.heap_allocator()) }
-			if ok, why := setup.updated(setup_options(), version^); !ok { log.errorf("the update is in place, but %s", why) }
-		}, nil, version)
 	}
 }
 
@@ -93,7 +64,7 @@ app_restart :: proc(app: ^App, after_update := false) {
 
 // "Check for updates" (the Programs step's button, the palette): its answer said whatever it is.
 update_check_asked :: proc(app: ^App) {
-	if app.updater != nil { update.check_now(app.updater) }
+	if app.updates.updater != nil { update.check_now(app.updates.updater) }
 }
 
 // What a toast says of the updater's news: a check asked says "Everything is up to date" or why it could not be made
@@ -110,18 +81,18 @@ suite_notice :: proc(st: update.Status) -> (words: string, bad: bool) {
 // checks the new atelier and puts it in place, then the new copy starts with --after-update (updates_follow). When it is
 // in place already, the new copy starts at once.
 suite_update :: proc(app: ^App) {
-	if app.updater == nil { return }
+	if app.updates.updater == nil { return }
 	#partial switch app.update_phase {
 	case .Installed: app_restart(app, after_update = true)
 	case .Available:
 		app.suite_asked = true
-		update.install_now(app.updater)
+		update.install_now(app.updates.updater)
 	}
 }
 
 // Whether "Update atelier and the programs" can act now.
 suite_update_possible :: proc(app: ^App) -> bool {
-	return app.updater != nil && app.suite_version != "" && (app.update_phase == .Available || app.update_phase == .Installed)
+	return app.updates.updater != nil && app.suite_version != "" && (app.update_phase == .Available || app.update_phase == .Installed)
 }
 
 // Reads, on a worker, the manifest published beside the newer atelier's release: what its bundle carries. It is not
@@ -134,8 +105,7 @@ suite_read :: proc(app: ^App, version: string) {
 	app.suite_newer = nil
 	Suite_Job :: struct { url, version, agent: string, carried: []Program, newer: []Newer_Program }
 	j := new(Suite_Job)
-	folder, _ := prefs_page.update_source(&app.prefs)
-	if folder == "" { folder = UPDATE_FOLDER }
+	folder := app.updates.folder
 	if !strings.has_suffix(folder, "/") { folder = strings.concatenate({folder, "/"}, context.temp_allocator) }
 	j.url = strings.concatenate({folder, suite_manifest_name(version, update.PLATFORM)})
 	j.version = strings.clone(version)
