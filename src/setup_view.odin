@@ -40,7 +40,7 @@ atelier_identity: desktop.Identity
 atelier_identity_init :: proc "contextless" () {
 	context = runtime.default_context()
 	id := desktop.identity_of(VENDOR, APP_TITLE, APP_NAME)
-	id.description = "The working man's tools: Froment Software's desktop programs, installed at once."
+	id.description = "High power tools for your desktop: Froment Software's programs, installed at once."
 	id.generic_name = "Software Installer"
 	id.categories = "System;PackageManager;Utility;"
 	id.keywords = "install;programs;suite;froment;"

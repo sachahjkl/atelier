@@ -2,7 +2,7 @@
 
 <h1 align="center">atelier</h1>
 
-<p align="center"><b>The working man's tools, by Froment Software.</b></p>
+<p align="center"><b>High power tools for your desktop.</b></p>
 
 <p align="center">
 <a href="https://github.com/sachahjkl/atelier/actions/workflows/ci.yml"><img src="https://github.com/sachahjkl/atelier/actions/workflows/ci.yml/badge.svg" alt="CI"></a>

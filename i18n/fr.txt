@@ -234,8 +234,8 @@ fr Cette copie d'Atelier ne contient aucun programme : construisez-la avec ateli
 en By
 fr Par
 
-en The working man's tools
-fr Les outils de l'artisan
+en High power tools for your desktop.
+fr Des outils haute puissance pour votre bureau.
 
 en This copy carries %d program, made %s.
 en+ This copy carries %d programs, made %s.
