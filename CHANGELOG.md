@@ -5,6 +5,11 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-18 09:37
+
+### Changed
+- **A new tagline: high power tools for your desktop**: the window and the site say it in place of "the working man's tools"; the site's footer credits htmx, whose words it borrows.
+
 ## [0.7.5] - 2026-11-18 05:20
 
 ### Changed
@@ -135,6 +140,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.8.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.8.0
 [0.7.5]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.5
 [0.7.4]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.4
 [0.7.3]: https://github.com/sachahjkl/atelier/releases/tag/v0.7.3
