@@ -21,9 +21,6 @@ import "gt:render"
 import timefmt "gt:timefmt"
 import "gt:ui"
 
-// The roundness of a well, in font sizes: the toolkit's cards' (ui.card), so a well on the page matches them.
-WELL_RADIUS_EM :: f32(0.6)
-
 // The side of a program's mark in a row, in font sizes.
 MARK_EM :: f32(2)
 
@@ -497,7 +494,7 @@ licences_view :: proc(app: ^App, em: f32) {
 				}
 			}
 			ui.space(ui.SPACE_1)
-			ui.next({width = ui.fill(), height = ui.px(math.round(em * TEXT_VIEW_EM)), radius = math.round(em * WELL_RADIUS_EM)})
+			ui.next({width = ui.fill(), height = ui.px(math.round(em * TEXT_VIEW_EM)), radius = math.round(em * ui.shape_of(.Card))})   // (a well's corners are the theme's cards')
 			if ui.well(fmt.tprintf("###licence_%s_%d_well", p.slug, k), .X) { text_scroll(em, fmt.tprintf("###licence_%s_%d", p.slug, k), r.licences[k]) }
 		}
 	}
@@ -687,7 +684,7 @@ failure_lines :: proc(app: ^App, index: int, r: ^Row, indent, em: f32) {
 		if ui.row(id = "###output_row") {
 			ui.spacer(ui.px(indent))
 			// (a well without its edge: it is inside a card, where a second edge is one line too many)
-			ui.next({width = ui.fill(), height = ui.px(math.round(em * OUTPUT_VIEW_EM)), radius = math.round(em * WELL_RADIUS_EM)})
+			ui.next({width = ui.fill(), height = ui.px(math.round(em * OUTPUT_VIEW_EM)), radius = math.round(em * ui.shape_of(.Card))})   // (a well's corners are the theme's cards')
 			if ui.well("###output_area", .X, edge = false) {
 				text_scroll(em, "###output", details)
 				// (the copy of the whole output, in the area's corner: it acts on what is in the area)
