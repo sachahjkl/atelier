@@ -25,7 +25,7 @@ VENDOR_URL :: "https://froment.software"
 // atelier's folders (settings, state, logs, scratch): its vendor's folder, then its own (gui_toolkit's
 // src/md/features/folders.md). The runtime folder keeps APP_NAME: an old and a new copy still meet on its socket.
 APP_FOLDER :: "FromentSoftware" + platform.USER_DIR_SEPARATOR + APP_TITLE
-APP_VERSION :: "0.8.0"
+APP_VERSION :: "0.8.1"
 
 USAGE :: `atelier: Froment Software's programs, chosen and installed at once
 
