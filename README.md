@@ -24,6 +24,7 @@ licences, and they install at once.
 | [classeur](https://classeur.froment.software/) | A fast file manager you drive from the keyboard. | Linux, Windows |
 | [cliche](https://cliche.froment.software/) | Fast screenshots and screen recordings, shared at once. | Linux, Windows |
 | [inspecteur](https://inspecteur.froment.software/) | The processes of your machine, at a glance. | Linux |
+| [feuille](https://feuille.froment.software/) | Open a PDF at once, arrange its pages, put text on them. | Linux, Windows |
 | [opencode native](https://ocn.froment.software/) | A native desktop client for opencode. | Linux, Windows |
 
 Each release of atelier carries the latest release of each program. Its notes say which versions.

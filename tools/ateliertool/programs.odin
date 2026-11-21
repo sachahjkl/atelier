@@ -20,6 +20,7 @@ PROGRAMS := [?]Suite_Program{
 	{slug = "classeur", repository = "classeur", name = "Classeur", tagline = "A fast file manager you drive from the keyboard.", site = "https://classeur.froment.software/"},
 	{slug = "cliche", repository = "cliche", name = "cliche", tagline = "Fast screenshots and screen recordings, shared at once.", site = "https://cliche.froment.software/"},
 	{slug = "inspecteur", repository = "inspecteur", name = "Inspecteur", tagline = "The processes of your machine, at a glance.", site = "https://inspecteur.froment.software/"},
+	{slug = "feuille", repository = "feuille", name = "feuille", tagline = "Open a PDF at once, arrange its pages, put text on them.", site = "https://feuille.froment.software/"},
 	{slug = "opencode-native", repository = "opencode_native", name = "opencode native", tagline = "A native desktop client for opencode.", site = "https://ocn.froment.software/"},
 }
 
