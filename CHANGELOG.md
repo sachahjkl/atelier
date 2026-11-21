@@ -5,6 +5,11 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-11-21 10:12
+
+### Changed
+- **The update badge shows its download**: when a new atelier is on offer, its badge in the title bar turns from Install to a bar that fills as the download goes, then to Restart.
+
 ## [0.9.0] - 2026-11-21 08:30
 
 ### Added
@@ -165,6 +170,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.9.1]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.1
 [0.9.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.0
 [0.8.4]: https://github.com/sachahjkl/atelier/releases/tag/v0.8.4
 [0.8.3]: https://github.com/sachahjkl/atelier/releases/tag/v0.8.3
