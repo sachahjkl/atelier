@@ -74,7 +74,8 @@ Run_Options :: struct {
 	after_update: bool,      // this run is the new copy after the suite's update: on Programs, with its line
 	step:       Step,
 	finished:   bool,             // with step Installing (--step done): the installs over
-	last_crash: string,           // the report of the last run, which crashed ("": it ended cleanly)
+	// the log, the last crash and the restart after the end (host.program_start): what is owned until main ends
+	start:      ^host.Program_Start,
 	owner:      instance.Owner,   // the single instance, held by this process (state None: not held)
 }
 
@@ -315,7 +316,7 @@ app_run_kept :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool)
 	p := host.program_start({name = APP_NAME, folder = APP_FOLDER, version = APP_VERSION})
 	defer host.program_end(&p)
 	context.logger = p.logger
-	o.last_crash = p.last_crash
+	o.start = &p
 	return app_run(o, prefs, setup_asked)
 }
 

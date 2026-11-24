@@ -16,7 +16,6 @@ import http "gt:http"
 import i18n "gt:i18n"
 import "gt:platform"
 import prefs_page "gt:prefs_page"
-import process "gt:process"
 import "gt:ui"
 import update "gt:update"
 import atelier_update "update"
@@ -56,9 +55,7 @@ updates_follow :: proc(app: ^App) {
 // The program starts again once this one has ended (it holds the single instance until then): an update put in place,
 // or Restart asked. `after_update`: the new copy opens on the Programs step (the suite's update goes on there).
 app_restart :: proc(app: ^App, after_update := false) {
-	delete(app.launch_after)
-	app.launch_after = strings.clone(process.executable_path())
-	app.launch_after_update = after_update
+	host.restart_after_exit(app.start, after_update ? []string{"--after-update"} : nil)
 	platform.request_close(app.main.win)
 }
 

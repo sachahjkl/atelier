@@ -8,7 +8,6 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
-import "core:sync"
 import "core:time"
 import archive "gt:archive"
 import desktop "gt:desktop"
@@ -299,26 +298,15 @@ exit_code_words :: proc(code: int) -> string {
 // Whether this system is NixOS, where a carried file does not run (its interpreter is not at /lib64).
 nixos :: proc() -> bool { return desktop.is_nixos() }
 
-// One start at a time, process-wide: a child started while another start is under way inherits what that start opened
-// for its own child. The programs then run side by side: each writes to a file of its own, not to a pipe, so a file
-// another child inherited holds nothing up (a pipe's reader waits for every writer to end).
-@(private = "file")
-start_lock: sync.Mutex
-
 // Runs a program to its end; `out` is its standard output and its error output (temp memory), written to `out_path`
-// (default: `<program>.out` beside it), then read and deleted.
+// (default: `<program>.out` beside it), then read and deleted. One file for both keeps their lines in the order the
+// program wrote them. process.start holds the toolkit's lock around the spawn: the programs run side by side.
 @(private = "file")
 run_captured :: proc(command: []string, out_path := "") -> (code: int, out: string, ok: bool) {
 	path := out_path != "" ? out_path : strings.concatenate({command[0], ".out"}, context.temp_allocator)
 	f, ferr := os.open(path, {.Write, .Create, .Trunc}, os.Permissions_Default_File)
 	if ferr != nil { return 0, "", false }
-	p: os.Process
-	err: os.Error
-	{
-		sync.mutex_lock(&start_lock)
-		defer sync.mutex_unlock(&start_lock)
-		p, err = os.process_start({command = command, working_dir = filepath.dir(command[0]), env = child_env(), stdout = f, stderr = f})
-	}
+	p, err := process.start({command = command, working_dir = filepath.dir(command[0]), env = child_env(), stdout = f, stderr = f})
 	os.close(f)
 	defer _ = os.remove(path)
 	if err != nil { return 0, "", false }

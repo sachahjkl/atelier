@@ -348,7 +348,7 @@ versions (the daily `refresh.yml` makes sure of it), and its file is signed and 
    the manifest cannot be read, the banner names atelier's version alone.
 3. **Update.** "Update atelier and the programs" asks the updater to download, check and put the new file in place
    (`update.install_now`; the updater's rules decide where: the running file, installed or not). Once it is in place,
-   atelier starts its new copy with `--after-update` and ends (`app.launch_after`, after the single instance is let go,
+   atelier starts its new copy with `--after-update` and ends (`host.restart_after_exit`: gui_toolkit's `program_end` starts it after the single instance is let go,
    as for a Restart). When the updater already put it in place by itself, the button restarts at once.
 4. **After the update.** `--after-update` opens on the Programs step with the line "atelier is up to date: choose what to
    update.". The rows whose installed version is older than the new bundle's are ticked by the usual rule (`Older`).

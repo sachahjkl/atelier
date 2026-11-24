@@ -97,8 +97,7 @@ App :: struct {
 	install:        prefs_page.Install,
 	updates:        prefs_page.Updates,   // its updater nil in the demo
 	update_phase:   update.Phase,         // the updater's phase last said, for the builds (they never ask the updater)
-	launch_after:   string,            // this program again after an update, started once this one has ended (owned)
-	launch_after_update: bool,         // ... with --after-update: the suite's update goes on in the new copy
+	start:          ^host.Program_Start,   // its restart_after_exit starts this program again once it has ended
 
 	// the suite's updates (updates.odin, suite.odin)
 	suite_version: string,             // the newer atelier on offer whose programs were asked ("": none; owned)
@@ -120,7 +119,8 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	// (read once, before the window: no frame reads the clock)
 	app.started_ms = time.to_unix_nanoseconds(time.now()) / 1_000_000
 	// (host.program_start said it in the log)
-	if opts.last_crash != "" { crash_bar.init(&app.crash_bar, opts.last_crash) }
+	app.start = opts.start
+	if opts.start.last_crash != "" { crash_bar.init(&app.crash_bar, opts.start.last_crash) }
 	app.prefs = prefs^
 	prefs^ = {}
 	app.settings = prefs_read(&app.prefs)
@@ -239,14 +239,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	// (the instance let go: the installed copy the install's dialog opened, or the updated one, is the running atelier now)
 	instance.serve_stop(server)
 	prefs_page.install_launch(&app.install)
-	launch := app.launch_after
-	app.launch_after = ""
-	launch_args: []string = app.launch_after_update ? {"--after-update"} : nil
 	app_free(app)
-	if launch != "" {
-		if !setup.launch(launch, launch_args) { log.errorf("%s does not start", launch) }
-		delete(launch)
-	}
 	return 0
 }
 
@@ -260,7 +253,6 @@ app_free :: proc(app: ^App) {
 	delete(app.programs)
 	bundle_destroy(app.bundle)
 	delete(app.prefs_path)
-	delete(app.launch_after)
 	crash_bar.destroy(&app.crash_bar)
 	prefs_page.themes_file_destroy(&app.themes_file)
 	palette_destroy(app)
