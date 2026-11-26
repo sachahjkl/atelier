@@ -5,6 +5,11 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.8] - 2026-11-26 20:25
+
+### Changed
+- **Clearer checkmarks and settings that keep what you type**: the ticks of the programs' boxes keep a readable contrast in every theme. A text field of the settings keeps its edit when you click elsewhere or press Tab. On Linux, the System theme follows the desktop's light or dark choice from its settings portal (gui_toolkit 0.361.0).
+
 ## [0.9.7] - 2026-11-26 05:20
 
 ### Changed
@@ -200,6 +205,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.9.8]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.8
 [0.9.7]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.7
 [0.9.6]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.6
 [0.9.5]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.5
