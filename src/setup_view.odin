@@ -53,6 +53,8 @@ setup_options :: proc() -> setup.Setup_Options {
 	return setup.Setup_Options{
 		identity = atelier_identity, version = APP_VERSION, icons = ICON_PNGS[:],
 		vendor_url = VENDOR_URL,
+		// (the person's only: the suite's update replaces this file, and a copy for everyone is the administrator's)
+		scopes = {.User},
 		choices = SETUP_CHOICES[:], running = app_running, quit = app_quit_ask,
 		prepare = proc(o: ^desktop.Integration_Options, choices: []bool, user: rawptr) {
 			if len(choices) == len(SETUP_CHOICES) { o.add_to_path = choices[0] }

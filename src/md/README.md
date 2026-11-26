@@ -308,7 +308,9 @@ A part that atelier made in its own way would drift from the programs it install
   the Installation page. No offer at a start: atelier's own row of the Programs step installs it (above, "atelier's own
   row"). The person opens atelier again from the menu to add a program later. The install copies the running file, which is the program and its bundle: the installed copy carries its
   programs. Its identity names no NixOS libraries: the toolkit would patch the file with patchelf, and the bundle after the
-  ELF must stay byte for byte.
+  ELF must stay byte for byte. It is the person's only (`scopes = {.User}`), never for everyone: the programs it
+  installs are each in the person's profile, and a copy for everyone is updated by an administrator alone, so the suite's
+  update (its own file, then the programs) could not run from it.
 - **Its updates** (`gt:update`): the release's file *is* the update. The signed manifest (`update-<platform>.json` and
   `.sig`) names `atelier-<version>-<platform>[.exe]`, the program with its bundle after it, which is exactly the name
   `update.expected_file_name` expects. An installed atelier that updates itself gets the new programs too. The product's
