@@ -56,7 +56,7 @@ installed programs without them: no WebP images, no `<slug>` command in a termin
 `<slug>/beside/`, each named in the manifest's `beside` list with its size and SHA-256, taken from the release's zip
 (itself checked against its `.sha256`). Taking a program out puts them beside its file, each checked.
 
-Refused: the release's zip as the only source of the program. opencode native publishes no Windows zip, and the
+Refused: the release's zip as the only source of the program. Tower publishes no Windows zip, and the
 update manifest stays the single signed name of the program's file.
 
 ## Never behind a program

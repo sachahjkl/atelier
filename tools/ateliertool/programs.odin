@@ -5,7 +5,7 @@ package ateliertool
 // gt:setup). Its name and tagline are its README's.
 
 Suite_Program :: struct {
-	slug:       string,   // the program's file name ("opencode-native"), and its folder in the bundle
+	slug:       string,   // the program's file name ("feuille"), and its folder in the bundle
 	repository: string,   // the GitHub repository's name under OWNER
 	name:       string,   // as people read it
 	tagline:    string,
@@ -21,7 +21,7 @@ PROGRAMS := [?]Suite_Program{
 	{slug = "cliche", repository = "cliche", name = "cliche", tagline = "Fast screenshots and screen recordings, shared at once.", site = "https://cliche.froment.software/"},
 	{slug = "inspecteur", repository = "inspecteur", name = "Inspecteur", tagline = "The processes of your machine, at a glance.", site = "https://inspecteur.froment.software/"},
 	{slug = "feuille", repository = "feuille", name = "feuille", tagline = "Open a PDF at once, arrange its pages, put text on them.", site = "https://feuille.froment.software/"},
-	{slug = "opencode-native", repository = "opencode_native", name = "opencode native", tagline = "A native desktop client for opencode.", site = "https://ocn.froment.software/"},
+	{slug = "tower", repository = "tower", name = "Tower", tagline = "Run and follow your opencode sessions, on this computer or on a server.", site = "https://tower.froment.software/"},
 }
 
 // The platforms a bundle is made for, as the releases name them.
