@@ -94,7 +94,6 @@ suite_update_possible :: proc(app: ^App) -> bool {
 
 // Reads, on a worker, the manifest published beside the newer atelier's release: what its bundle carries. It is not
 // signed: it decides only what the window shows. When it cannot be read, the banner names atelier's version alone.
-@(private = "file")
 suite_read :: proc(app: ^App, version: string) {
 	delete(app.suite_version)
 	app.suite_version = strings.clone(version)

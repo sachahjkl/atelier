@@ -104,6 +104,10 @@ App :: struct {
 	suite_newer:   []Newer_Program,    // what it carries that is newer than this copy (owned)
 	suite_asked:   bool,               // "Update atelier and the programs": the new copy starts once it is in place
 	after_update:  bool,               // this run is the new copy (--after-update): its line on the Programs step
+
+	// the debug panels (debug_panels.odin)
+	fail_next:     bool,               // the next install job fails before its Unpack, through its real answer
+	debug_suite:   string,             // the version "Read this suite" reads (the debug surface's copy: never freed here)
 }
 
 // The App of the process: a worker's answer finds it.
@@ -192,6 +196,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 		prefs_page.install_offer(&app.install, &h.state, offer = false)
 	}
 	palette_init(app)
+	debug_panels(&h.state, app)
 	// (a second start hands its launcher's token: this window comes to the front)
 	server: ^instance.Server
 	if opts.owner.state == .Claimed {
@@ -497,7 +502,6 @@ Status_Job :: struct {
 	status:  Status,
 }
 
-@(private = "file")
 status_ask :: proc(app: ^App, index: int) {
 	if index >= len(app.rows) { return }
 	j := new(Status_Job)
@@ -701,6 +705,7 @@ Install_Job :: struct {
 	output:  string,
 	exit_code: Maybe(int),    // the --install's (nil: the phase that failed ran no process)
 	status:  Status,          // read again after the install: where the program is now
+	fail:    bool,            // the debug panel's failure on demand: it ends before its Unpack
 }
 
 // Starts the install of every row of the batch (the look found no copy that runs, or the person agreed to close them).
@@ -723,6 +728,8 @@ install_go :: proc(app: ^App) {
 		j := new(Install_Job)
 		j.bundle, j.program, j.index, j.scratch, j.phase = app.bundle, p, i, strings.clone(r.scratch), r.phase
 		j.close, j.exe, j.quits = r.close, strings.clone(r.status.program), r.status.quits
+		// (one install fails, the first that runs a job: atelier's own goes another way)
+		if app.fail_next && !p.own { j.fail, app.fail_next = true, false }
 		ui.task(&app.main.state, install_work, install_done, j, install_lost)
 	}
 	clear(&app.batch)
@@ -794,6 +801,7 @@ install_work :: proc(data: rawptr) {
 	}
 	// (a failed install keeps its file: a retry checks it again and uses it)
 	defer if j.ok { scratch_remove(p) }
+	if j.fail { j.output = strings.clone("a failure that the debug panel asked for"); return }
 	// Close: the copy that runs ends, and the installed file is free
 	if j.close {
 		// (no file taken out: its --quit has nowhere to write its output, and the process is ended instead)

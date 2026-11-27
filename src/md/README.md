@@ -373,6 +373,25 @@ old offsets. So the start's task reads all that atelier will need: the logos, th
 each program's file taken out to the scratch folder. After it, a run never reads the bundle again. A file taken out
 again at an install (its first try failed) is checked against its SHA-256, so a new bundle under it fails clearly.
 
+### The debug panels
+
+A build with the devtools has four panels (`gt:debug`, Ctrl+Alt+Shift+D), registered at the window's start
+(`debug_panels.odin`):
+
+- **Steps**: the step, the install stage, the look and its batch. The acts are the step buttons' own (Next, Back, Select
+  all, Select none, Retry failed), with the same guards (`action_enabled`).
+- **Programs**: one section per row: its state, its result, its phase, its file taken out, its output. "Read status"
+  asks its `--status` again, as at the start. The state can be set by hand, to see a row in a state that no run gives.
+- **Bundle**: what the manifest says. "Delete the files taken out" empties the scratch folder while no row is busy: the
+  next install then takes its file out again and checks it, the path of a retry after the bundle changed.
+- **Updates**: the updater's phase and the newer suite on offer. "Check now" is the Programs step's button; "Read this
+  suite" reads the manifest of the version typed, as an offer of the updater does.
+
+A failure on demand goes through the real path: with "Fail the next install" on, the next install job ends before its
+Unpack with a reason that says so, and the row shows its Retry. A failure faked by setting the row's result would skip
+the job and its answer, which are what Retry starts again. No panel reads the disk or the network on the window's
+thread: each act that does is a task, as the buttons' are.
+
 ## The command line
 
 - `atelier`: the window.
