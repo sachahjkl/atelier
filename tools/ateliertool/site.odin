@@ -23,7 +23,7 @@ SITE_LD := [?][2]string{
 }
 
 site_meta :: proc() -> tk_site.Meta {
-	m := tk_site.meta_default("Atelier", "https://atelier.froment.software/", REPOSITORY, "High power tools for your desktop", "#111113", "#ec7a43")
+	m := tk_site.meta_default("Atelier", "https://atelier.froment.software/", REPOSITORY, "Installer and updater for Froment Software apps", "#111113", "#ec7a43")
 	m.ld_fields = SITE_LD[:]
 	return m
 }

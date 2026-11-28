@@ -34,7 +34,7 @@ Shot_Act :: struct { command, arg, seen: string }
 @(private = "file")
 SHOTS := [?]Shot{
 	// (atelier's own row first, not installed: the picture of a first start)
-	{name = "main", step = "programs", seen = "This installer, kept on your computer"},
+	{name = "main", step = "programs", seen = "App manager"},
 	{name = "welcome", step = "welcome", seen = "Froment Software"},
 	{name = "licences", step = "licences", seen = "MIT License"},
 	// (the install under way: the steppers side by side, the count and the bar)

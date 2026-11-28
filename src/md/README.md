@@ -35,7 +35,7 @@ file of its release (the same file that its updater downloads), its logo, and it
 
 ```json
 {"schema": 1, "platform": "linux-x64", "made": "2026-11-15",
- "programs": [{"slug": "papier", "name": "Papier", "tagline": "A fast clipboard history, searched as you type.",
+ "programs": [{"slug": "papier", "name": "Papier", "tagline": "Clipboard manager",
    "version": "0.23.2", "repository": "https://github.com/sachahjkl/papier", "site": "https://papier.froment.software/",
    "file": "papier/papier", "size": 27685760, "sha256": "…", "logo": "papier/logo.png",
    "licences": [{"title": "MIT License", "file": "papier/LICENSE"}, {"title": "Lucide icons", "file": "papier/LUCIDE-LICENSE.txt"}]}]}
@@ -195,8 +195,7 @@ with confirmation.
 
 ## atelier's own row
 
-atelier is the first row of the Programs step, as one program of the suite: its logo, its name, the line "This installer,
-kept on your computer: it updates the suite and adds programs later.", its version and its state, with the same badges
+atelier is the first row of the Programs step, as one program of the suite: its logo, its name, the line "App manager", its version and its state, with the same badges
 and the same box rules (`state_ticked`, `programs.ticked`). The person installs atelier as they install the others, in
 the same list, after the same licences, with the same stepper. Nothing asks it at the start.
 

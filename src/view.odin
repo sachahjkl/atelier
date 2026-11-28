@@ -262,7 +262,7 @@ welcome_view :: proc(app: ^App, em: f32) {
 			ui.label(APP_TITLE + "###name")
 			if ui.tags("weak") {
 				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), font_size = math.round(em * 0.9), text_pad = 0})
-				ui.label(fmt.tprintf("%s###line", i18n.tr("High power tools for your desktop.")))
+				ui.label(fmt.tprintf("%s###line", i18n.tr("App manager")))
 			}
 			by_line(app, em)
 		}

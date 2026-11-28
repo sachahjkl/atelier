@@ -32,7 +32,6 @@ about_build :: proc(app: ^App) {
 	ui.about_modal("about", &app.about_open, {
 		name         = APP_TITLE,
 		version      = APP_VERSION,
-		tagline      = i18n.tr("High power tools for your desktop."),
 		licence      = "MIT",
 		copyright    = "© 2026 Froment Software",
 		logo         = app.logo,

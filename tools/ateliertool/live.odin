@@ -199,7 +199,7 @@ live_window :: proc() -> bool {
 	// (no installer of the installer: atelier's own row offers its install, no dialog over the first step)
 	if len(cdp.find(&c, "Atelier Setup")) > 0 { fmt.eprintln("live: the setup dialog opened at the start"); return false }
 	step(&c, "Not installed", "", SHOTS_WAIT) or_return   // (the states read: the boxes ticked)
-	step(&c, "This installer, kept on your computer", "", SHOTS_WAIT) or_return   // (atelier's own row)
+	step(&c, "App manager", "", SHOTS_WAIT) or_return   // (atelier's own row)
 	step(&c, "Next", "Next", SHOTS_WAIT) or_return
 	step(&c, "MIT License", "Accept and install", SHOTS_WAIT) or_return
 	// (papier runs: the question names it, and its button closes it)

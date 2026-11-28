@@ -2,7 +2,7 @@
 
 <h1 align="center">Atelier</h1>
 
-<p align="center"><b>High power tools for your desktop.</b></p>
+<p align="center"><b>Installer and updater for Froment Software apps.</b></p>
 
 <p align="center">
 <a href="https://github.com/sachahjkl/atelier/actions/workflows/ci.yml"><img src="https://github.com/sachahjkl/atelier/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -20,15 +20,15 @@ licences, and they install at once.
 
 | Program | What it does | Systems |
 |---|---|---|
-| [Papier](https://papier.froment.software/) | A fast clipboard history, searched as you type. | Linux, Windows |
-| [Classeur](https://classeur.froment.software/) | A fast file manager you drive from the keyboard. | Linux, Windows |
-| [Cliche](https://cliche.froment.software/) | Fast screenshots and screen recordings, shared at once. | Linux, Windows |
-| [Inspecteur](https://inspecteur.froment.software/) | What runs on your computer, at a glance. | Linux, Windows |
-| [Feuille](https://feuille.froment.software/) | Open a PDF at once, arrange its pages, put text on them. | Linux, Windows |
-| [Plume](https://plume.froment.software/) | Write code and prose in a window that never waits. | Linux, Windows |
-| [Galerie](https://galerie.froment.software/) | A whole folder of pictures at a glance, each one large and sharp, its details beside it. | Linux, Windows |
-| [Ardoise](https://ardoise.froment.software/) | A terminal that keeps your shells alive. | Linux, Windows |
-| [Tower](https://tower.froment.software/) | Run and follow your opencode sessions, on this computer or on a server. | Linux, Windows |
+| [Papier](https://papier.froment.software/) | Clipboard manager | Linux, Windows |
+| [Classeur](https://classeur.froment.software/) | File manager | Linux, Windows |
+| [Cliche](https://cliche.froment.software/) | Screenshots and screen recorder | Linux, Windows |
+| [Inspecteur](https://inspecteur.froment.software/) | System monitor | Linux, Windows |
+| [Feuille](https://feuille.froment.software/) | PDF viewer and editor | Linux, Windows |
+| [Plume](https://plume.froment.software/) | Text editor | Linux, Windows |
+| [Galerie](https://galerie.froment.software/) | Image viewer | Linux, Windows |
+| [Ardoise](https://ardoise.froment.software/) | Terminal | Linux, Windows |
+| [Tower](https://tower.froment.software/) | OpenCode client | Linux, Windows |
 
 Each release of Atelier carries the latest release of each program. Its notes say which versions.
 

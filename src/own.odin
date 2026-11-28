@@ -25,7 +25,7 @@ OWN_LICENCES := [?]Licence{{title = "MIT License"}, {title = "Lucide (ISC Licens
 own_program :: proc() -> Program {
 	return Program{
 		slug = APP_NAME, name = APP_TITLE, version = APP_VERSION, repository = "https://github.com/sachahjkl/atelier",
-		tagline = i18n.later("This installer, kept on your computer: it updates the suite and adds programs later."),
+		tagline = i18n.later("App manager"),
 		licences = OWN_LICENCES[:], own = true,
 	}
 }

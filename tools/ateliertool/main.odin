@@ -26,7 +26,7 @@ project :: proc() -> toolbox.Project {
 		version_file = "src/main.odin", version_line = "APP_VERSION :: ", program = PROGRAM,
 		// (every command waits: atelier list and install give their output and exit code to the console)
 		launcher = {default_rule = "wait", others = "(none)", refuses_exit = 2},
-		title = "Atelier", description = "High power tools for your desktop: Froment Software's programs, installed at once.",
+		title = "Atelier", description = "Installer and updater for Froment Software apps",
 		publisher = "Froment Software", copyright = "Copyright (c) 2026 Froment Software",
 		features = {.Lucide_Subset},
 	}

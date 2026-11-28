@@ -199,8 +199,8 @@ fr le fichier extrait ne peut pas être lu
 en the file taken out changed: its size or its SHA-256 differs
 fr le fichier extrait a changé : sa taille ou son SHA-256 diffère
 
-en This installer, kept on your computer: it updates the suite and adds programs later.
-fr Cet installateur, gardé sur votre ordinateur : il met la suite à jour et ajoute des programmes plus tard.
+en App manager
+fr Gestionnaire d'applications
 
 en Atelier cannot install itself on this system
 fr Atelier ne peut pas s'installer sur ce système
@@ -210,9 +210,6 @@ fr Cochés d'emblée
 
 en Tick the programs that are not installed, older or to repair as soon as their state is read. Off: every box starts empty.
 fr Cocher les programmes absents, plus anciens ou à réparer dès que leur état est lu. Désactivé : toutes les cases sont vides au départ.
-
-en High power tools for your desktop.
-fr Des outils haute puissance pour votre bureau.
 
 en General
 fr Général
