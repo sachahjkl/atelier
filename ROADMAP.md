@@ -11,6 +11,10 @@
 
 ## Next
 
+- **Plume, Galerie and Ardoise in the suite**: atelier carries Plume, Galerie and Ardoise with the rest of the suite.
+  The person gets every desktop program of Froment Software in one download.
+- **Up-to-date README and consistent program names**: the README matches the current suite, and program names use one
+  consistent letter case across atelier, the suite and the documentation.
 - **Uninstall from atelier**: a program's row offers to remove it (`<program> --uninstall`). The person manages the whole
   suite from one window.
 
