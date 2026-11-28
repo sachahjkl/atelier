@@ -16,6 +16,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   linux:
@@ -30,7 +31,9 @@ jobs:
           submodules: recursive
 
       - uses: DeterminateSystems/nix-installer-action@v16
-      - uses: DeterminateSystems/magic-nix-cache-action@v8
+      - uses: Mic92/niks3-action@v1
+        with:
+          server-url: https://cache.froment.software
 
       - uses: actions/cache@v4
         with:

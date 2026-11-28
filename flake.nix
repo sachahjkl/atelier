@@ -1,6 +1,12 @@
 {
   description = "Atelier: installer and updater for Froment Software apps";
 
+  # The binary cache that the CI fills: nix run and nix develop download what it already built.
+  nixConfig = {
+    extra-substituters = ["https://cache.froment.software"];
+    extra-trusted-public-keys = ["homelab-cache-1:ZaUHSv8slKsAKc9kd0AGI8p1HUjUumfho7ShgUVlnUg="];
+  };
+
   inputs = {
     self.submodules = true;
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2605";
