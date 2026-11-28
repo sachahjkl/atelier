@@ -1,5 +1,5 @@
 {
-  description = "atelier: high power tools for your desktop: Froment Software's programs, installed at once.";
+  description = "Atelier: high power tools for your desktop: Froment Software's programs, installed at once.";
 
   inputs = {
     self.submodules = true;

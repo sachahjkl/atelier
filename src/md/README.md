@@ -45,7 +45,7 @@ file of its release (the same file that its updater downloads), its logo, and it
 manifest (`update-<platform>.json`, or `update-<platform>-stable.json`) names the file and its SHA-256; the tool downloads
 the file and checks the SHA-256. The licence files come from the release's archive (`.tar.gz` or `.zip`): every file of
 it but the program, the README and the changelog. A program without a file for a platform is not in that platform's
-bundle (inspecteur is Linux only).
+bundle.
 
 ### What goes beside a program
 

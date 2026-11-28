@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/logo_128.png" width="96" alt="atelier logo: an orange toolbox"></p>
+<p align="center"><img src="assets/logo_128.png" width="96" alt="Atelier logo: an orange toolbox"></p>
 
-<h1 align="center">atelier</h1>
+<h1 align="center">Atelier</h1>
 
 <p align="center"><b>High power tools for your desktop.</b></p>
 
@@ -14,20 +14,22 @@
 Every desktop program of [Froment Software](https://froment.software) in one download. Choose the programs, read their
 licences, and they install at once.
 
-![atelier's window: the programs, each with its version and a box to tick](docs/screenshots/main.png)
+![Atelier's window: the programs, each with its version and a box to tick](docs/screenshots/main.png)
 
 ## What it carries
 
 | Program | What it does | Systems |
 |---|---|---|
-| [papier](https://papier.froment.software/) | A fast clipboard history, searched as you type. | Linux, Windows |
-| [classeur](https://classeur.froment.software/) | A fast file manager you drive from the keyboard. | Linux, Windows |
-| [cliche](https://cliche.froment.software/) | Fast screenshots and screen recordings, shared at once. | Linux, Windows |
-| [inspecteur](https://inspecteur.froment.software/) | The processes of your machine, at a glance. | Linux |
-| [feuille](https://feuille.froment.software/) | Open a PDF at once, arrange its pages, put text on them. | Linux, Windows |
+| [Papier](https://papier.froment.software/) | A fast clipboard history, searched as you type. | Linux, Windows |
+| [Classeur](https://classeur.froment.software/) | A fast file manager you drive from the keyboard. | Linux, Windows |
+| [Cliche](https://cliche.froment.software/) | Fast screenshots and screen recordings, shared at once. | Linux, Windows |
+| [Inspecteur](https://inspecteur.froment.software/) | What runs on your computer, at a glance. | Linux, Windows |
+| [Feuille](https://feuille.froment.software/) | Open a PDF at once, arrange its pages, put text on them. | Linux, Windows |
+| [Plume](https://plume.froment.software/) | Write code and prose in a window that never waits. | Linux, Windows |
+| [Galerie](https://galerie.froment.software/) | A whole folder of pictures at a glance, each one large and sharp, its details beside it. | Linux, Windows |
 | [Tower](https://tower.froment.software/) | Run and follow your opencode sessions, on this computer or on a server. | Linux, Windows |
 
-Each release of atelier carries the latest release of each program. Its notes say which versions.
+Each release of Atelier carries the latest release of each program. Its notes say which versions.
 
 ## How it works
 
@@ -48,15 +50,15 @@ Each release of atelier carries the latest release of each program. Its notes sa
 | ![Programs that are open](docs/screenshots/close.png) | ![A failed install: its reason, its output and its Retry](docs/screenshots/retry.png) |
 | A program that is open is closed first | A failed install says why, on its own line |
 
-## atelier itself
+## Atelier itself
 
-atelier is one more program of the suite: its own title bar, its settings (Ctrl+,), its command palette (Ctrl+K).
+Atelier is one more program of the suite: its own title bar, its settings (Ctrl+,), its command palette (Ctrl+K).
 
 - **It installs itself** with the programs it carries: it is the first line of the programs, ticked when it is not
   installed (also the settings' Installation page, or `atelier --install`). Open it again from the menu to add a
   program later.
 - **It updates itself** once installed: a new release brings the new versions of the programs too. "Check for updates"
-  on the programs' step names what a newer atelier carries; "Update atelier and the programs" updates atelier, then
+  on the programs' step names what a newer Atelier carries; "Update Atelier and the programs" updates Atelier, then
   opens it again with the programs to update ticked.
 
   ![A newer suite on offer: the programs it updates, and its button](docs/screenshots/update.png)
@@ -75,7 +77,7 @@ From the [releases](https://github.com/sachahjkl/atelier/releases/latest):
 - **Windows** 10 and 11 (x64): `atelier-<version>-windows-x64.exe`. Start it.
 - **Linux** (x64): `atelier-<version>-linux-x64`. Make it executable (`chmod +x`), then start it. The programs need a
   Wayland or X11 desktop, Vulkan and fontconfig.
-- **NixOS**: Nix installs each program from its flake (`nix profile add github:sachahjkl/papier`). atelier shows the
+- **NixOS**: Nix installs each program from its flake (`nix profile add github:sachahjkl/papier`). Atelier shows the
   line of each one.
 
 From a terminal, without a window:
@@ -106,5 +108,5 @@ build/atelier --bundle build/bundle-linux-x64.zip
 
 ## Licence
 
-atelier is MIT ([LICENSE](LICENSE)). Each program it carries has its own licence, which atelier shows before it
+Atelier is MIT ([LICENSE](LICENSE)). Each program it carries has its own licence, which Atelier shows before it
 installs anything.

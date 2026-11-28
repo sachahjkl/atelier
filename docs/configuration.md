@@ -18,7 +18,7 @@ Set one for a single run: `atelier --pref appearance.font_size=16`. `--look=dark
 `--pref appearance.mode=dark` and `--pref appearance.mode=light`.
 
 The settings page (Ctrl+, or the gear of the title bar) shows them all and applies each change at once. It exports them
-to JSON, TOML or INI, or to atelier's own format, which it imports back. The command palette (Ctrl+K) finds them too,
+to JSON, TOML or INI, or to Atelier's own format, which it imports back. The command palette (Ctrl+K) finds them too,
 after a `:`.
 
 ## The common settings
@@ -31,18 +31,18 @@ aliases you set from the command palette (`keys.custom`, `keys.aliases`: Ctrl+En
 makes the letters typed its alias) are the settings
 that every program of gui_toolkit has. Its
 [docs/settings.md](https://github.com/sachahjkl/gui_toolkit/blob/main/docs/settings.md) lists each with its default.
-atelier's defaults: the theme `atelier`, the text size 14 px, its own title bar (`window.system_title` off).
+Atelier's defaults: the theme `atelier`, the text size 14 px, its own title bar (`window.system_title` off).
 
 `appearance.theme` is `atelier`, a theme of gui_toolkit by its name (Midnight, Graphite, Nord, Dracula, Gruvbox, Tokyo
 Night, Catppuccin, Rosé Pine, Kanagawa, One Dark, Solarized…), or one of your own: Settings > Appearance links to
 `$XDG_CONFIG_HOME/FromentSoftware/Atelier/themes.txt`, made with a commented guide at the first click and read again each time it is
 saved.
 
-`update.auto` applies to the installed atelier only: it downloads the new release, with the new versions of the programs
+`update.auto` applies to the installed Atelier only: it downloads the new release, with the new versions of the programs
 it carries. `general.menu` and `general.autostart` are the install's (its dialog, the Installation page,
 `atelier --install`).
 
-## atelier's own
+## Atelier's own
 
 | Name | Type | Default | What it does |
 |---|---|---|---|

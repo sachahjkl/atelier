@@ -35,8 +35,9 @@ The private key (the file's text) is the repository's secret `UPDATE_SIGNING_KEY
 
 ## The window during development
 
-`build/atelier --bundle build/bundle-linux-x64.zip` is a full atelier: its settings are in `$XDG_CONFIG_HOME/atelier`,
-and one atelier runs at a time (a debug build has its own instance). `--demo` owns no instance and writes no settings.
+`build/atelier --bundle build/bundle-linux-x64.zip` is a full Atelier: its settings are in
+`$XDG_CONFIG_HOME/FromentSoftware/Atelier`, and one Atelier runs at a time (a debug build has its own instance).
+`--demo` owns no instance and writes no settings.
 
 ## A program in the suite
 
