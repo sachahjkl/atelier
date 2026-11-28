@@ -40,6 +40,12 @@ fr Mettre à jour Atelier et les programmes
 en Install Atelier…
 fr Installer Atelier…
 
+en What's new
+fr Nouveautés
+
+en About Atelier
+fr À propos d'Atelier
+
 en Keyboard shortcuts
 fr Raccourcis clavier
 
@@ -205,6 +211,9 @@ fr Cochés d'emblée
 en Tick the programs that are not installed, older or to repair as soon as their state is read. Off: every box starts empty.
 fr Cocher les programmes absents, plus anciens ou à réparer dès que leur état est lu. Désactivé : toutes les cases sont vides au départ.
 
+en High power tools for your desktop.
+fr Des outils haute puissance pour votre bureau.
+
 en General
 fr Général
 
@@ -266,9 +275,6 @@ fr Cette copie d'Atelier ne contient aucun programme : construisez-la avec ateli
 
 en By
 fr Par
-
-en High power tools for your desktop.
-fr Des outils haute puissance pour votre bureau.
 
 en This copy carries %d program, made %s.
 en+ This copy carries %d programs, made %s.

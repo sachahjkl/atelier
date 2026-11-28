@@ -326,6 +326,11 @@ A part that atelier made in its own way would drift from the programs it install
   has an id, the person's keys and aliases are stored by (`ui.Keymap`, the settings `keys.custom` and `keys.aliases`).
   An "Open" line's id is `open.<slug>`: the bundle's slug stays from one version to the next, its name and the language
   do not. Its keys are read with the steps' actions, from the table the palette is given (made once per language).
+- **About and What's new** (`ui.about_modal`, `prefs_page.Changelog`): "About Atelier" in the command palette opens
+  the toolkit's About modal with Atelier's logo, version, toolkit version, licence, diagnostics (bundle platform,
+  program count and date), website and online release notes, and a primary "What's new" button that jumps straight to
+  the embedded `CHANGELOG.md` page in Settings (`prefs_page.CHANGELOG_PAGE`). After an update, a notice offers to
+  open What's new once (off in `--demo`).
 - **Its own install** (`gt:setup` through `prefs_page.Install`): `--install`, `--uninstall`, `--status`, `--setup` and
   the Installation page. No offer at a start: atelier's own row of the Programs step installs it (above, "atelier's own
   row"). The person opens atelier again from the menu to add a program later. The install copies the running file, which is the program and its bundle: the installed copy carries its

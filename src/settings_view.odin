@@ -5,6 +5,7 @@ package atelier
 // standard settings by prefs_page.standard_watch, atelier's by settings_changed. The preferences' writer saves the file
 // off the window's thread (app_run's loop).
 
+import "core:fmt"
 import i18n "gt:i18n"
 import lucide "gt:lucide"
 import "gt:platform"
@@ -14,6 +15,33 @@ import "gt:ui"
 settings_toggle :: proc(app: ^App) {
 	app.settings_open = !app.settings_open
 	if app.settings_open { prefs_page.focus_search(&app.settings_page) }
+}
+
+open_whats_new :: proc(app: ^App) {
+	app.settings_open = true
+	prefs_page.show(&app.settings_page, &app.prefs, settings_options(app), prefs_page.CHANGELOG_PAGE)
+}
+
+// Bundle summary appended to About's "Copy diagnostics".
+about_diagnostics :: proc(app: ^App, allocator := context.temp_allocator) -> string {
+	if app.bundle == nil { return "Bundle: none" }
+	return fmt.aprintf("Bundle: %s, %d programs, made %s", app.bundle.platform, len(app.bundle.programs), app.bundle.made, allocator = allocator)
+}
+
+about_build :: proc(app: ^App) {
+	ui.about_modal("about", &app.about_open, {
+		name         = APP_TITLE,
+		version      = APP_VERSION,
+		tagline      = i18n.tr("High power tools for your desktop."),
+		licence      = "MIT",
+		copyright    = "© 2026 Froment Software",
+		logo         = app.logo,
+		on_whats_new = proc(user: rawptr) { open_whats_new((^App)(user)) },
+		website_url  = "https://atelier.froment.software/",
+		releases_url = "https://atelier.froment.software/changelog/",
+		diagnostics  = about_diagnostics(app),
+		user         = app,
+	})
 }
 
 // Escape goes back, unless an editor of a preference has the keyboard (Escape gives it back to the list first).
@@ -68,6 +96,7 @@ settings_options :: proc(app: ^App) -> prefs_page.Page_Options {
 		version = APP_TITLE + " " + APP_VERSION,
 		themes = app.themes_file.all[:], themes_light = app.theme_shown.light, themes_file = &app.themes_file,
 		install = &app.install, diagnostics = prefs_page.diagnostics_of(&app.main),
+		changelog = &app.changelog,
 	}
 }
 

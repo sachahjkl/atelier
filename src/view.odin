@@ -42,6 +42,7 @@ view_build :: proc(h: ^host.Host, size: host.Vec2) {
 		setup_build(app)
 		ask_build(app)
 		uninstall_build(app)
+		about_build(app)
 	}
 }
 

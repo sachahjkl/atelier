@@ -18,7 +18,7 @@ import update "gt:update"
 Action :: enum u8 {
 	// (in the palette's order: each group's actions together)
 	Next, Back, Accept_Install, Retry_Failed, Select_All, Select_None,
-	Settings, Check_Updates, Update_Suite, Install_Atelier, Shortcuts, Quit,
+	Settings, Check_Updates, Update_Suite, Install_Atelier, Whats_New, About, Shortcuts, Quit,
 }
 
 ACTIONS := [Action]ui.Command{
@@ -32,6 +32,8 @@ ACTIONS := [Action]ui.Command{
 	.Check_Updates  = {id = "check_updates", label = i18n.later("Check for updates"), group = i18n.later("Atelier"), icon = lucide.REFRESH_CW, tags = {"upgrade", "version", "new"}},
 	.Update_Suite   = {id = "update_suite", label = i18n.later("Update Atelier and the programs"), group = i18n.later("Atelier"), icon = lucide.DOWNLOAD, tags = {"upgrade", "suite", "newer"}},
 	.Install_Atelier = {id = "install_atelier", label = i18n.later("Install Atelier…"), group = i18n.later("Atelier"), icon = lucide.PACKAGE_PLUS, tags = {"setup", "uninstall", "menu", "path"}},
+	.Whats_New       = {id = "whats_new", label = i18n.later("What's new"), group = i18n.later("Atelier"), icon = lucide.SPARKLES, tags = {"changelog", "release", "changes", "version"}, scope = .Window},
+	.About           = {id = "about", label = i18n.later("About Atelier"), group = i18n.later("Atelier"), icon = lucide.INFO, tags = {"version", "licence", "credits", "info"}, scope = .Window},
 	.Shortcuts      = {id = "shortcuts", label = i18n.later("Keyboard shortcuts"), group = i18n.later("Atelier"), keys = {{.F1, {}}}, icon = lucide.KEYBOARD, tags = {"help", "keys", "hotkeys"}, scope = .Window},
 	.Quit           = {id = "quit", label = i18n.later("Quit Atelier"), group = i18n.later("Atelier"), keys = {{.Q, {.Ctrl}}}, icon = lucide.POWER, tags = {"exit", "close", "stop"}, scope = .Window},
 }
@@ -59,7 +61,7 @@ action_enabled :: proc(app: ^App, a: Action) -> bool {
 	case .Check_Updates:            return app.updates.updater != nil
 	case .Update_Suite:             return suite_update_possible(app)
 	case .Install_Atelier:          return !app.demo
-	case .Settings, .Shortcuts, .Quit: return true
+	case .Settings, .Whats_New, .About, .Shortcuts, .Quit: return true
 	}
 	return false
 }
@@ -76,6 +78,8 @@ action_run :: proc(app: ^App, a: Action) {
 	case .Check_Updates:         update_check_asked(app)
 	case .Update_Suite:          suite_update(app)
 	case .Install_Atelier:       prefs_page.install_open(&app.install)
+	case .Whats_New:             open_whats_new(app)
+	case .About:                 app.about_open = true
 	// (the sheet adds the toolkit's palette command itself)
 	case .Shortcuts:             ui.shortcuts_sheet_open(&app.sheet, slice.enumerated_array(&ACTIONS), i18n.tr("Atelier's keys"))
 	case .Quit:                  platform.request_close(app.main.win)

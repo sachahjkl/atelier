@@ -86,6 +86,8 @@ App :: struct {
 	settings:      Settings,
 	settings_open: bool,                     // the settings in place of the steps
 	settings_page: prefs_page.Page,
+	changelog:     prefs_page.Changelog,     // the embedded CHANGELOG.md (Settings > What's new)
+	about_open:    bool,                     // ui.about_modal
 	announcer:     ui.Announcer,             // where the update's notices are said (general.messages)
 	placement:     prefs_page.Placement_Keeper,   // the window's place, the toolkit's window.placement
 
@@ -132,6 +134,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	prefs^ = {}
 	app.settings = prefs_read(&app.prefs)
 	// (the announcer is filled once the window is open: the install says through it what it changed)
+	app.changelog = {english = #load("../CHANGELOG.md", string)}
 	prefs_page.install_init(&app.install, &app.prefs, setup_options(), &app.announcer)
 	// (general.language is in the registry, and nothing is shown yet: every text from here on is in its language)
 	prefs_page.language_start(&app.prefs, PROGRAM_CATALOGUES)
@@ -197,6 +200,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 		// (the install read on a task: updates_follow applies update.auto once it is known. Never offered at the start: atelier's own row of the Programs step
 		// installs it, src/md/README.md "atelier's own row")
 		prefs_page.install_offer(&app.install, &h.state, offer = false)
+		prefs_page.changelog_after_update(&app.changelog, &app.prefs, APP_VERSION, &app.announcer, proc(user: rawptr) { open_whats_new((^App)(user)) }, app)
 	}
 	palette_init(app)
 	debug_panels(&h.state, app)
@@ -265,6 +269,7 @@ app_free :: proc(app: ^App) {
 	prefs_page.themes_file_destroy(&app.themes_file)
 	palette_destroy(app)
 	ui.shortcuts_sheet_destroy(&app.sheet)
+	prefs_page.changelog_destroy(&app.changelog)
 	prefs_page.destroy(&app.settings_page)
 	settings_free(&app.settings)
 	prefs_page.standard_unwatch(&app.standard)

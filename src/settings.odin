@@ -61,6 +61,7 @@ views_path :: proc(allocator := context.temp_allocator) -> string {
 prefs_open :: proc(p: ^config.Prefs, args: []string, descriptions := context.allocator) -> (rest: [dynamic]string, problems: [dynamic]string) {
 	p^ = config.prefs_make()
 	prefs_page.standard_register(p, prefs_page.STANDARD_ALL, standard_defaults(), descriptions)
+	prefs_page.changelog_register(p)
 	config.register(p, PREF_DEFS[:])
 	_, file_problems := config.load_file(p, prefs_file(), .User)
 	rest, problems = config.apply_args(p, args, context.temp_allocator)

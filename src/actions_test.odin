@@ -31,7 +31,7 @@ every_command_has_an_id :: proc(t: ^testing.T) {
 // The settings, the keys and quit are the window's: their keys work in the settings and over a dialog.
 @(test)
 the_window_actions_are_marked :: proc(t: ^testing.T) {
-	for a in ([]Action{.Settings, .Shortcuts, .Quit}) {
+	for a in ([]Action{.Settings, .Whats_New, .About, .Shortcuts, .Quit}) {
 		testing.expectf(t, ACTIONS[a].scope == .Window, "%v is the window's", a)
 	}
 	testing.expect_value(t, ACTIONS[.Next].scope, ui.Command_Scope.Page)
@@ -87,4 +87,14 @@ the_actions_follow_the_step :: proc(t: ^testing.T) {
 	testing.expect(t, action_enabled(&app, .Retry_Failed), "Installing, finished: a row failed, Retry")
 	app.look = .Asking
 	testing.expect(t, !action_enabled(&app, .Retry_Failed), "one look at a time")
+	testing.expect(t, action_enabled(&app, .About) && action_enabled(&app, .Whats_New), "About and What's new are always available")
+}
+
+@(test)
+about_diagnostics_summarises_the_bundle :: proc(t: ^testing.T) {
+	empty := App{}
+	testing.expect_value(t, about_diagnostics(&empty), "Bundle: none")
+	b := Bundle{platform = "linux-x64", made = "2026-11-28T10:00:00Z", programs = make([]Program, 8, context.temp_allocator)}
+	with_bundle := App{bundle = &b}
+	testing.expect_value(t, about_diagnostics(&with_bundle), "Bundle: linux-x64, 8 programs, made 2026-11-28T10:00:00Z")
 }
