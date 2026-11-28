@@ -2,8 +2,6 @@
 
 ## Now
 
-- **Ardoise in the suite**: Atelier carries Ardoise once its `v0.1.0` release is published. The person installs the
-  terminal with the rest of the suite.
 - **Wren in the suite**: Atelier carries Wren once Wren's releases include `update-linux-x64.json` and
   `assets/logo_64.png`. The person gets the browser with the other tools.
 - **The open programs, tested on Windows**: the question, the close and the install that follows run in the Windows CI

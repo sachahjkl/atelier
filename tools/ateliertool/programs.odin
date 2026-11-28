@@ -23,6 +23,7 @@ PROGRAMS := [?]Suite_Program{
 	{slug = "feuille", repository = "feuille", name = "Feuille", tagline = "Open a PDF at once, arrange its pages, put text on them.", site = "https://feuille.froment.software/"},
 	{slug = "plume", repository = "plume", name = "Plume", tagline = "Write code and prose in a window that never waits.", site = "https://plume.froment.software/"},
 	{slug = "galerie", repository = "galerie", name = "Galerie", tagline = "A whole folder of pictures at a glance, each one large and sharp, its details beside it.", site = "https://galerie.froment.software/"},
+	{slug = "ardoise", repository = "ardoise", name = "Ardoise", tagline = "A terminal that keeps your shells alive.", site = "https://ardoise.froment.software/"},
 	{slug = "tower", repository = "tower", name = "Tower", tagline = "Run and follow your opencode sessions, on this computer or on a server.", site = "https://tower.froment.software/"},
 }
 

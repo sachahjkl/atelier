@@ -27,6 +27,7 @@ licences, and they install at once.
 | [Feuille](https://feuille.froment.software/) | Open a PDF at once, arrange its pages, put text on them. | Linux, Windows |
 | [Plume](https://plume.froment.software/) | Write code and prose in a window that never waits. | Linux, Windows |
 | [Galerie](https://galerie.froment.software/) | A whole folder of pictures at a glance, each one large and sharp, its details beside it. | Linux, Windows |
+| [Ardoise](https://ardoise.froment.software/) | A terminal that keeps your shells alive. | Linux, Windows |
 | [Tower](https://tower.froment.software/) | Run and follow your opencode sessions, on this computer or on a server. | Linux, Windows |
 
 Each release of Atelier carries the latest release of each program. Its notes say which versions.
