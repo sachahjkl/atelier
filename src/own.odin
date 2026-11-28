@@ -74,3 +74,17 @@ own_install :: proc(allocator := context.allocator) -> (ok: bool, output: string
 	if !done { output = strings.clone(exe_or_why, allocator) }
 	return done, output
 }
+
+// Uninstalls Atelier itself through gt:setup. On Windows, files that still run are scheduled for removal once this
+// process ends.
+own_uninstall :: proc(allocator := context.allocator) -> (ok: bool, output: string) {
+	o := setup_options()
+	done, leftovers, why := setup.uninstall(o)
+	defer {
+		for l in leftovers { delete(l) }
+		delete(leftovers)
+	}
+	if done && len(leftovers) > 0 { _ = setup.remove_later(o, leftovers[:]) }
+	if !done { output = strings.clone(why, allocator) }
+	return done, output
+}

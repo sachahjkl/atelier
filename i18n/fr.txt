@@ -82,6 +82,33 @@ fr %s (Entrée)
 en After its install, the program says: %s
 fr Après son installation, le programme indique : %s
 
+en Atelier removes itself from your computer. Your settings and data stay.
+fr Atelier se supprime de votre ordinateur. Vos réglages et vos données restent.
+
+en Atelier removes %s from your computer. Your settings and data stay.
+fr Atelier supprime %s de votre ordinateur. Vos réglages et vos données restent.
+
+en Uninstall
+fr Désinstaller
+
+en %s is open. Atelier closes it and removes it from your computer. Your settings and data stay.
+fr %s est ouvert. Atelier le ferme et le supprime de votre ordinateur. Vos réglages et vos données restent.
+
+en Close and uninstall
+fr Fermer et désinstaller
+
+en Uninstall %s?
+fr Désinstaller %s ?
+
+en Cancel
+fr Annuler
+
+en %s uninstalled.
+fr %s désinstallé.
+
+en %s could not be uninstalled: %s
+fr Impossible de désinstaller %s : %s
+
 en a file that goes beside the program cannot be read from the bundle
 fr un fichier qui accompagne le programme ne peut pas être lu dans le paquet
 
@@ -129,6 +156,12 @@ fr L'étape %s a échoué : Atelier n'en connaît pas la raison.
 
 en The install did not finish: the program gave no reason. Its exit code: %s
 fr L'installation n'a pas abouti : le programme n'a donné aucune raison. Son code de sortie : %s
+
+en The uninstall did not finish: the program gave no reason.
+fr La désinstallation n'a pas abouti : le programme n'a donné aucune raison.
+
+en The uninstall did not finish: the program gave no reason. Its exit code: %s
+fr La désinstallation n'a pas abouti : le programme n'a donné aucune raison. Son code de sortie : %s
 
 en Close
 fr Fermer
@@ -264,6 +297,12 @@ fr Copié
 
 en %s available
 fr %s disponible
+
+en Uninstalling…
+fr Désinstallation…
+
+en Uninstall %s
+fr Désinstaller %s
 
 en Cannot be read here
 fr Illisible ici

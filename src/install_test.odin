@@ -81,8 +81,13 @@ each_state_ticks_and_offers_its_box_as_the_table_says :: proc(t: ^testing.T) {
 	// (src/md/README.md, "The states of a program in atelier")
 	ticked := [State]bool{.Reading = false, .Absent = true, .Older = true, .Current = false, .Newer = false, .Repair = true, .Unknown = false}
 	choosable := [State]bool{.Reading = false, .Absent = true, .Older = true, .Current = true, .Newer = false, .Repair = true, .Unknown = false}
+	uninstallable := [State]bool{.Reading = false, .Absent = false, .Older = true, .Current = true, .Newer = true, .Repair = true, .Unknown = false}
 	for s in State {
 		testing.expectf(t, state_ticked(s) == ticked[s], "%v ticked", s)
 		testing.expectf(t, state_choosable(s) == choosable[s], "%v choosable", s)
+		testing.expectf(t, state_uninstallable(s) == uninstallable[s], "%v uninstallable", s)
 	}
+	nix := status_parse(0, status_text("installed by Nix", "-", "-"), "0.23.2")
+	defer status_destroy(&nix)
+	testing.expect(t, nix.by_nix, "a Nix-installed program is marked by_nix")
 }

@@ -49,7 +49,7 @@ action_enabled :: proc(app: ^App, a: Action) -> bool {
 	case .Next:
 		#partial switch app.step {
 		case .Welcome:  return has && len(app.rows) > 0
-		case .Programs: return has && chosen_count(app) > 0
+		case .Programs: return has && chosen_count(app) > 0 && !uninstall_busy(app)
 		}
 		return false
 	case .Back:                     return has && (app.step == .Programs || app.step == .Licences)

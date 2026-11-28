@@ -171,6 +171,28 @@ each program's `nix profile add github:sachahjkl/<repository>`, which the person
 runs where `/lib64` has an interpreter (nix-ld), and `gt:setup` makes the installed copy run by itself on NixOS. A file
 that does not run there reads as `Unknown`, as on any system.
 
+## Uninstall from Atelier
+
+A program that is installed (`Older`, `Current`, `Newer` or `Repair`, and not installed by Nix) has a quiet Uninstall
+button at the end of its row on the Programs step. Atelier never deletes a program's files itself: it runs the program's
+own `--uninstall` (for a carried program, from the carried file in the scratch folder so that Windows does not try to
+delete a running file; for Atelier itself, `setup.uninstall` with `setup.remove_later` when files stay until exit).
+
+1. **The look.** When the person clicks Uninstall on a carried program, a worker checks whether a copy runs (`open_read`,
+   as before an install). Atelier's own row skips this look.
+2. **The confirmation.** One modal confirmation (`ui.confirm_open`, danger intent) asks before anything is removed.
+   When a copy runs, the confirmation names that it is open and offers "Close and uninstall"; otherwise it offers
+   "Uninstall". Both say that settings and data stay.
+3. **The uninstall** (on a worker): if a copy runs, `close_program` closes it first (`--quit`, then `processes_end`,
+   then wait for the file to be free); then `<scratch> --uninstall` runs, and `--status` is read again. Meanwhile the
+   row shows a spinner ("Uninstalling…"), its box is disabled, and the Programs step waits before advancing to Licences.
+4. **Afterward.** Once uninstalled, the row's state becomes `Absent` and its box stays unticked: a person who just
+   removed a program does not want Atelier to tick it for reinstall at once. A toast announces the result; a failure logs
+   the full output.
+
+Refused: a second uninstall step or a batch-uninstall checkbox mode. Programs are uninstalled one by one from their row,
+with confirmation.
+
 ## atelier's own row
 
 atelier is the first row of the Programs step, as one program of the suite: its logo, its name, the line "This installer,
@@ -400,7 +422,10 @@ thread: each act that does is a task, as the buttons' are.
   The slug `atelier` is atelier itself; `all` includes it. The exit code is 0 when each one installed. A command line
   asks no question: a program that runs is reported and left as it is (exit 1), unless `--close` allows atelier to close
   it first, as the window's "Close them and install" does.
-- `atelier --install`, `--uninstall`, `--status`, `--quit`, `--setup`: atelier's own install (`gt:setup`), as in every
+- `atelier uninstall <slug>… | all [--close]`: those programs uninstalled without a window (exit 0 when each one
+  uninstalled or was not installed). The slug `atelier` is Atelier itself; `all` includes it. A program managed by Nix
+  is left as it is. A program that runs is left as it is (exit 1), unless `--close` allows Atelier to close it first.
+- `atelier --install`, `--uninstall`, `--status`, `--quit`, `--setup`: Atelier's own install (`gt:setup`), as in every
   program.
 - `atelier prefs`, `atelier set <name> <value>`, `--pref name=value`: the preferences.
 - `atelier --bundle <file>`: read the programs from another file (a bundle built by `ateliertool bundle` without the

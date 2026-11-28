@@ -176,9 +176,36 @@ look_next :: proc(l: Look, event: Look_Event) -> Look {
 	return l
 }
 
+// The uninstall confirmation for one row on the Programs step:
+//
+//   Idle --(Start)--> Checking --(Ready)--> To_Ask --(Shown)--> Asking --(Answer)--> Idle
+//     |                                       ^
+//     +--------------(Ask_Now)----------------+   (Atelier's own row or demo: no look needed)
+Uninstall_Ask :: enum u8 { Idle, Checking, To_Ask, Asking }
+
+Uninstall_Event :: enum u8 { Start, Ask_Now, Ready, Shown, Answer }
+
+uninstall_ask_next :: proc(u: Uninstall_Ask, event: Uninstall_Event) -> Uninstall_Ask {
+	switch u {
+	case .Idle:
+		#partial switch event {
+		case .Start:   return .Checking
+		case .Ask_Now: return .To_Ask
+		}
+	case .Checking:
+		if event == .Ready { return .To_Ask }
+	case .To_Ask:
+		if event == .Shown { return .Asking }
+	case .Asking:
+		if event == .Answer { return .Idle }
+	}
+	return u
+}
+
 // One program of the bundle in the window: its box, its state, its logo, its licences' texts and its install.
 Row :: struct {
-	ticked:    bool,
+	ticked:       bool,
+	uninstalling: bool,         // Programs: an uninstall worker is running for this row
 	status:    Status,          // its strings owned
 	scratch:   string,          // its file taken out ("": not, or deleted after its install; owned)
 	logo:      render.Texture,

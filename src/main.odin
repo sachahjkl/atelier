@@ -34,6 +34,9 @@ USAGE :: `atelier: Froment Software's programs, chosen and installed at once
   atelier install <slug>... | all those programs installed, without a window (exit 0 when each one installed); the
                                   slug atelier is atelier itself, and all includes it. A program that runs is left
                                   as it is (exit 1), unless --close: then atelier closes it first
+  atelier uninstall <slug>... | all those programs uninstalled, without a window (exit 0 when each one uninstalled);
+                                  the slug atelier is atelier itself, and all includes it. A program that runs is left
+                                  as it is (exit 1), unless --close: then atelier closes it first
   atelier --setup                 the window with atelier's own install shown (also in the settings: Installation)
   atelier --install               install this copy of atelier for you, with the programs it carries: the program, its
                                   menu entry, its uninstaller; no window
@@ -129,13 +132,14 @@ run :: proc(all_args: []string) -> int {
 	case "list":
 		if len(words) > 1 { break }
 		return list_run(opts.bundle)
-	case "install":
+	case "install", "uninstall":
 		slugs := make([dynamic]string, context.temp_allocator)
 		close := false
 		for w in words[1:] {
 			if w == "--close" { close = true } else { append(&slugs, w) }
 		}
 		if len(slugs) == 0 { break }
+		if words[0] == "uninstall" { return uninstall_run(opts.bundle, slugs[:], close) }
 		return install_run(opts.bundle, slugs[:], close)
 	case "prefs":
 		return prefs_list(&prefs)
@@ -289,6 +293,101 @@ own_install_run :: proc() -> bool {
 	}
 	defer delete(output)
 	process.console_write(fmt.tprintf("%s %s: %s\n", APP_NAME, APP_VERSION, ok ? "installed" : "failed"))
+	if output != "" { process.console_write(fmt.tprintf("    %s\n", indent(output))) }
+	return ok
+}
+
+// `atelier uninstall <slug>... | all`: each program uninstalls itself, one after the other. 0 when each one uninstalled
+// or was not installed.
+uninstall_run :: proc(path: string, slugs: []string, close := false) -> int {
+	b := bundle_for_command(path)
+	if b == nil { return 1 }
+	defer bundle_destroy(b)
+	chosen := make([dynamic]^Program)
+	defer delete(chosen)
+	own := false
+	for s in slugs {
+		if s == "all" {
+			own = true
+			for &p in b.programs { append(&chosen, &p) }
+			continue
+		}
+		if s == APP_NAME { own = true; continue }
+		p := program_of(b, s)
+		if p == nil { process.console_error(fmt.tprintf("atelier: no program %s in this bundle\n", s)); return 2 }
+		append(&chosen, p)
+	}
+	failed := 0
+	for p in chosen {
+		file, why := take_out(b, p^, context.temp_allocator)
+		ok: bool
+		output: string
+		exit_code: Maybe(int)
+		if why != "" {
+			ok, output = false, strings.clone(why)
+		} else {
+			s := open_read(file, p.version)
+			defer status_destroy(&s)
+			if s.by_nix {
+				process.console_write(fmt.tprintf("%s: installed by Nix, left as it is\n", p.slug))
+				scratch_remove(p^)
+				continue
+			}
+			if !state_uninstallable(s.state) {
+				process.console_write(fmt.tprintf("%s: %s, left as it is\n", p.slug, state_words(s)))
+				scratch_remove(p^)
+				continue
+			}
+			if s.running && !close {
+				process.console_write(fmt.tprintf("%s: it runs: left as it is (close it, or run atelier uninstall --close)\n", p.slug))
+				scratch_remove(p^)
+				failed += 1
+				continue
+			}
+			not_closed := ""
+			if s.running {
+				not_closed = close_program(s.program, s.quits, file)
+				if not_closed == "" { process.console_write(fmt.tprintf("%s: closed\n", p.slug)) }
+			}
+			if not_closed != "" {
+				ok, output = false, strings.clone(not_closed)
+			} else {
+				ok, output, exit_code = uninstall_one(file)
+			}
+		}
+		result := "uninstalled"
+		if !ok {
+			result = "failed"
+			if code, ran := exit_code.?; ran { result = fmt.tprintf("failed (exit code %s)", exit_code_words(code)) }
+		}
+		process.console_write(fmt.tprintf("%s: %s\n", p.slug, result))
+		if output != "" { process.console_write(fmt.tprintf("    %s\n", indent(output))) }
+		delete(output)
+		scratch_remove(p^)
+		if !ok { failed += 1 }
+	}
+	// (atelier itself last: removing the others first keeps the installer in place until the end)
+	if own && !own_uninstall_run() { failed += 1 }
+	scratch_end()
+	return failed == 0 ? 0 : 1
+}
+
+@(private = "file")
+own_uninstall_run :: proc() -> bool {
+	defer free_all(context.temp_allocator)
+	s := own_status()
+	defer status_destroy(&s)
+	if s.by_nix {
+		process.console_write(fmt.tprintf("%s: installed by Nix, left as it is\n", APP_NAME))
+		return true
+	}
+	if !state_uninstallable(s.state) {
+		process.console_write(fmt.tprintf("%s: %s, left as it is\n", APP_NAME, state_words(s)))
+		return true
+	}
+	ok, output := own_uninstall()
+	defer delete(output)
+	process.console_write(fmt.tprintf("%s: %s\n", APP_NAME, ok ? "uninstalled" : "failed"))
 	if output != "" { process.console_write(fmt.tprintf("    %s\n", indent(output))) }
 	return ok
 }

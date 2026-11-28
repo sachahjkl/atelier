@@ -109,3 +109,26 @@ a_step_is_named_on_the_command_line :: proc(t: ^testing.T) {
 	_, _, ok = step_of("install")
 	testing.expect(t, !ok, "an unknown step is refused")
 }
+
+@(test)
+the_uninstall_ask_follows_the_intent :: proc(t: ^testing.T) {
+	after := [Uninstall_Ask][Uninstall_Event]Uninstall_Ask{
+		.Idle     = {.Start = .Checking, .Ask_Now = .To_Ask, .Ready = .Idle, .Shown = .Idle, .Answer = .Idle},
+		.Checking = {.Start = .Checking, .Ask_Now = .Checking, .Ready = .To_Ask, .Shown = .Checking, .Answer = .Checking},
+		.To_Ask   = {.Start = .To_Ask, .Ask_Now = .To_Ask, .Ready = .To_Ask, .Shown = .Asking, .Answer = .To_Ask},
+		.Asking   = {.Start = .Asking, .Ask_Now = .Asking, .Ready = .Asking, .Shown = .Asking, .Answer = .Idle},
+	}
+	for u in Uninstall_Ask {
+		for event in Uninstall_Event {
+			testing.expectf(t, uninstall_ask_next(u, event) == after[u][event], "%v + %v: %v, not %v", u, event, uninstall_ask_next(u, event), after[u][event])
+		}
+	}
+}
+
+@(test)
+an_uninstall_failure_says_why_in_one_line :: proc(t: ^testing.T) {
+	out := "\n  papier: on NixOS a Nix package is the better install: Nix updates it\npapier: uninstall failed: file locked\n"
+	testing.expect_value(t, uninstall_failure_reason(out, 1), "papier: uninstall failed: file locked")
+	testing.expect_value(t, uninstall_failure_reason("", 5), "The uninstall did not finish: the program gave no reason. Its exit code: 5")
+	testing.expect_value(t, uninstall_failure_reason("", nil), "The uninstall did not finish: the program gave no reason.")
+}

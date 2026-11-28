@@ -19,6 +19,7 @@ steps_debug :: proc(app: ^App) {
 	debug.watch("step", app.step)
 	debug.watch("stage", app.stage)
 	debug.watch("look", app.look)
+	debug.watch("uninstall ask", app.uninstall_ask)
 	debug.watch("batch", app.batch[:])
 	debug.watch("asking", app.asking[:])
 	debug.watch("known", app.known)
@@ -54,6 +55,7 @@ programs_debug :: proc(app: ^App) {
 			debug.watch("running", r.status.running)
 			debug.watch("by nix", r.status.by_nix)
 			debug.toggle("ticked", &r.ticked)
+			debug.watch("uninstalling", r.uninstalling)
 			debug.watch("result", r.result)
 			debug.watch("phase", r.phase)
 			debug.watch("taken out", r.scratch)
@@ -93,7 +95,7 @@ updates_debug :: proc(app: ^App) {
 // Every file taken out goes, on a task: the next install takes its file out again and checks it. Not while a row is
 // busy: its job holds its file.
 scratch_drop :: proc(app: ^App) {
-	if app.look != .Idle { return }
+	if app.look != .Idle || uninstall_busy(app) { return }
 	for r in app.rows { if result_busy(r.result) { return } }
 	for &r in app.rows {
 		delete(r.scratch)

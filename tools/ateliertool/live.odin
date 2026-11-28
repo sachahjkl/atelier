@@ -73,6 +73,14 @@ run_live :: proc(args: []string) -> cli.Exit {
 	if !os.exists(fmt.tprintf("%s/.local/share/applications/atelier.desktop", home)) { fmt.eprintln("live: atelier has no menu entry"); failed = true }
 	if _, code := atelier(env, "--uninstall"); code != 0 { fmt.eprintln("live: atelier --uninstall failed"); failed = true }
 	if _, code := atelier(env, "--status"); code != 1 { fmt.eprintln("live: atelier --status does not say uninstalled"); failed = true }
+	// uninstall one carried program from the command line, verify list says Not installed, and a second uninstall stays 0
+	if _, code := atelier(env, "uninstall", "papier"); code != 0 { fmt.eprintln("live: atelier uninstall papier failed"); failed = true }
+	if os.exists(fmt.tprintf("%s/.local/share/applications/papier.desktop", home)) { fmt.eprintln("live: papier menu entry stayed after uninstall"); failed = true }
+	if ulist, ucode := atelier(env, "list"); ucode != 0 || !strings.contains(ulist, "papier") || !strings.contains(ulist, "Not installed") {
+		fmt.eprintln("live: list does not say papier is Not installed after uninstall")
+		failed = true
+	}
+	if _, code := atelier(env, "uninstall", "papier"); code != 0 { fmt.eprintln("live: second uninstall papier failed"); failed = true }
 	if failed { return .Failed }
 	fmt.println("live: every program installed, in its own home")
 	if !live_window() { return .Failed }

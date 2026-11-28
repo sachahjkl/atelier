@@ -59,9 +59,12 @@ App :: struct {
 	rows:         []Row,           // one per program of `programs`, in its order
 	step:         Step,
 	stage:        Install_Stage,   // Installing: whether the installs are under way (wizard.odin)
-	look:         Look,            // the look for the programs that run, one at a time (wizard.odin)
-	batch:        [dynamic]int,    // the rows of the look under way: they start once it ends
-	asking:       [dynamic]int,    // the rows of the batch whose copy runs: the question names them
+	look:              Look,           // the look for the programs that run, one at a time (wizard.odin)
+	batch:             [dynamic]int,   // the rows of the look under way: they start once it ends
+	asking:            [dynamic]int,   // the rows of the batch whose copy runs: the question names them
+	uninstall_ask:     Uninstall_Ask,  // Programs: the confirmation for one row's uninstall, one at a time
+	uninstall_row:     int,            // the row being confirmed (-1: none)
+	uninstall_running: bool,           // whether a copy of uninstall_row runs right now
 	demo:         bool,            // made-up states, nothing runs (--demo)
 	demo_case:    Demo_Case,       // what more the demo shows (--demo-case: the pictures of Retry, of a newer suite)
 	known:        bool,            // the start's task answered: the logos and the licences are there, nixos is known
@@ -119,7 +122,7 @@ app_run :: proc(opts: Run_Options, prefs: ^config.Prefs, setup_asked: bool) -> i
 	defer free(app)
 	the_app = app
 	defer the_app = nil
-	app.demo, app.demo_case, app.after_update, app.copied = opts.demo, opts.demo_case, opts.after_update, -1
+	app.demo, app.demo_case, app.after_update, app.copied, app.uninstall_row = opts.demo, opts.demo_case, opts.after_update, -1, -1
 	// (read once, before the window: no frame reads the clock)
 	app.started_ms = time.to_unix_nanoseconds(time.now()) / 1_000_000
 	// (host.program_start said it in the log)
@@ -393,7 +396,19 @@ select_all :: proc(app: ^App, on: bool) {
 
 // Whether the person can tick the row's box.
 row_choosable :: proc(app: ^App, r: Row) -> bool {
-	return app.known && state_choosable(r.status.state) && !r.status.by_nix
+	return app.known && state_choosable(r.status.state) && !r.status.by_nix && !r.uninstalling
+}
+
+// Whether the person can uninstall this row from the Programs step.
+row_uninstallable :: proc(app: ^App, r: Row) -> bool {
+	return app.known && state_uninstallable(r.status.state) && !r.status.by_nix && !r.uninstalling
+}
+
+// Whether an uninstall confirmation or worker is under way.
+uninstall_busy :: proc(app: ^App) -> bool {
+	if app.uninstall_ask != .Idle { return true }
+	for r in app.rows { if r.uninstalling { return true } }
+	return false
 }
 
 // Whether every licence of the programs chosen is read: "Accept and install" waits for it.
@@ -892,6 +907,246 @@ install_free :: proc(j: ^Install_Job) {
 install_lost :: proc(data: rawptr) {
 	j := (^Install_Job)(data)
 	install_free(j)
+	free(j)
+}
+
+////////////////////////////////
+// 5. Uninstall of one row, from the Programs step
+
+// The uninstall confirmation's id among the window's views.
+UNINSTALL_VIEW :: "uninstall_program"
+
+// Starts the uninstall flow for row `index`: checks whether a copy runs (for a carried program), then asks once.
+uninstall_ask :: proc(app: ^App, index: int) {
+	if app.uninstall_ask != .Idle || index < 0 || index >= len(app.rows) { return }
+	r := &app.rows[index]
+	if !row_uninstallable(app, r^) { return }
+	app.uninstall_row = index
+	app.uninstall_running = false
+	if app.demo || app.programs[index].own {
+		app.uninstall_ask = uninstall_ask_next(app.uninstall_ask, .Ask_Now)
+		return
+	}
+	app.uninstall_ask = uninstall_ask_next(app.uninstall_ask, .Start)
+	j := new(Uninstall_Check_Job)
+	j.bundle = app.bundle
+	j.program = app.programs[index]
+	j.index = index
+	j.scratch = strings.clone(r.scratch)
+	ui.task(&app.main.state, uninstall_check_work, uninstall_check_done, j, uninstall_check_lost)
+}
+
+@(private = "file")
+Uninstall_Check_Job :: struct {
+	bundle:  ^Bundle,
+	program: Program,
+	index:   int,
+	scratch: string,
+	status:  Status,
+	read:    bool,
+}
+
+@(private = "file")
+uninstall_check_work :: proc(data: rawptr) {
+	j := (^Uninstall_Check_Job)(data)
+	if j.scratch == "" {
+		why: string
+		j.scratch, why = take_out(j.bundle, j.program)
+		if why != "" { return }
+	}
+	j.status = open_read(j.scratch, j.program.version)
+	j.read = true
+}
+
+@(private = "file")
+uninstall_check_done :: proc(data: rawptr, _: u64) {
+	j := (^Uninstall_Check_Job)(data)
+	defer free(j)
+	app := the_app
+	if app == nil || app.closing {
+		status_destroy(&j.status)
+		delete(j.scratch)
+		return
+	}
+	if j.index >= len(app.rows) || app.step != .Programs || app.uninstall_ask != .Checking || app.uninstall_row != j.index {
+		status_destroy(&j.status)
+		delete(j.scratch)
+		if app.uninstall_ask == .Checking { app.uninstall_ask, app.uninstall_row = .Idle, -1 }
+		return
+	}
+	r := &app.rows[j.index]
+	delete(r.scratch)
+	r.scratch, j.scratch = j.scratch, ""
+	if j.read {
+		row_status(r, j.status, tick = false)
+		app.uninstall_running = r.status.running
+	} else {
+		status_destroy(&j.status)
+	}
+	if !row_uninstallable(app, r^) {
+		app.uninstall_ask, app.uninstall_row = .Idle, -1
+		return
+	}
+	app.uninstall_ask = uninstall_ask_next(app.uninstall_ask, .Ready)
+}
+
+@(private = "file")
+uninstall_check_lost :: proc(data: rawptr) {
+	j := (^Uninstall_Check_Job)(data)
+	status_destroy(&j.status)
+	delete(j.scratch)
+	free(j)
+}
+
+// Opens the uninstall confirmation once ready, and acts on its answer.
+uninstall_build :: proc(app: ^App) {
+	#partial switch app.uninstall_ask {
+	case .To_Ask:
+		if app.uninstall_row < 0 || app.uninstall_row >= len(app.programs) {
+			app.uninstall_ask, app.uninstall_row = .Idle, -1
+			return
+		}
+		p := app.programs[app.uninstall_row]
+		note := p.own ? i18n.tr("Atelier removes itself from your computer. Your settings and data stay.") : fmt.tprintf(i18n.tr("Atelier removes %s from your computer. Your settings and data stay."), p.name)
+		act := i18n.tr("Uninstall")
+		if app.uninstall_running {
+			note = fmt.tprintf(i18n.tr("%s is open. Atelier closes it and removes it from your computer. Your settings and data stay."), p.name)
+			act = i18n.tr("Close and uninstall")
+		}
+		ui.confirm_open(UNINSTALL_VIEW, {
+			title = fmt.tprintf(i18n.tr("Uninstall %s?"), p.name),
+			note = note,
+			act = act,
+			act_intent = ui.Intent.Danger,
+			labels = {cancel = i18n.tr("Cancel"), enter = i18n.tr("%s (Enter)")},
+		})
+		app.uninstall_ask = uninstall_ask_next(app.uninstall_ask, .Shown)
+	case .Asking:
+		switch ui.confirm_answer(UNINSTALL_VIEW) {
+		case .None:
+		case .Confirmed:
+			idx, running := app.uninstall_row, app.uninstall_running
+			app.uninstall_ask = uninstall_ask_next(app.uninstall_ask, .Answer)
+			app.uninstall_row, app.uninstall_running = -1, false
+			uninstall_go(app, idx, running)
+		case .Cancelled:
+			app.uninstall_ask = uninstall_ask_next(app.uninstall_ask, .Answer)
+			app.uninstall_row, app.uninstall_running = -1, false
+		}
+	}
+}
+
+@(private = "file")
+Uninstall_Job :: struct {
+	bundle:     ^Bundle,
+	program:    Program,
+	index:      int,
+	scratch:    string,
+	close:      bool,
+	exe:        string,
+	quits:      bool,
+	ok:         bool,
+	output:     string,
+	exit_code:  Maybe(int),
+	status:     Status,
+	has_status: bool,
+}
+
+@(private = "file")
+uninstall_go :: proc(app: ^App, index: int, close: bool) {
+	if index < 0 || index >= len(app.rows) { return }
+	r := &app.rows[index]
+	p := app.programs[index]
+	if !row_uninstallable(app, r^) { return }
+	if app.demo {
+		row_status(r, {state = .Absent}, tick = false)
+		r.ticked = false
+		ui.announce(&app.announcer, .Good, fmt.tprintf(i18n.tr("%s uninstalled."), p.name))
+		return
+	}
+	r.uninstalling = true
+	r.ticked = false
+	j := new(Uninstall_Job)
+	j.bundle, j.program, j.index = app.bundle, p, index
+	j.scratch = strings.clone(r.scratch)
+	j.close, j.exe, j.quits = close, strings.clone(r.status.program), r.status.quits
+	ui.task(&app.main.state, uninstall_work, uninstall_done, j, uninstall_lost)
+}
+
+@(private = "file")
+uninstall_work :: proc(data: rawptr) {
+	j := (^Uninstall_Job)(data)
+	p := j.program
+	if p.own {
+		defer free_all(context.temp_allocator)
+		j.ok, j.output = own_uninstall()
+		if j.ok {
+			j.status = own_status()
+			j.has_status = true
+		}
+		return
+	}
+	if j.close {
+		why := close_program(j.exe, j.quits && j.scratch != "", j.scratch)
+		free_all(context.temp_allocator)
+		if why != "" { j.output = strings.clone(why); return }
+	}
+	why: string
+	if j.scratch != "" && check_scratch(j.scratch, p) != "" {
+		delete(j.scratch)
+		j.scratch = ""
+	}
+	if j.scratch == "" { j.scratch, why = take_out(j.bundle, p) }
+	if why != "" { j.output = strings.clone(why); return }
+	j.ok, j.output, j.exit_code = uninstall_one(j.scratch)
+	if !j.ok { return }
+	j.status = status_read(j.scratch, p.version)
+	j.has_status = true
+}
+
+@(private = "file")
+uninstall_done :: proc(data: rawptr, _: u64) {
+	j := (^Uninstall_Job)(data)
+	defer {
+		delete(j.exe)
+		delete(j.output)
+		free(j)
+	}
+	app := the_app
+	if app == nil || app.closing {
+		delete(j.scratch)
+		status_destroy(&j.status)
+		return
+	}
+	r := &app.rows[j.index]
+	p := app.programs[j.index]
+	r.uninstalling = false
+	delete(r.scratch)
+	r.scratch, j.scratch = j.scratch, ""
+	if j.ok {
+		if j.has_status {
+			// (tick = false: a person who just uninstalled a program does not want it ticked to reinstall at once)
+			row_status(r, j.status, tick = false)
+		} else {
+			row_status(r, {state = .Absent}, tick = false)
+		}
+		r.ticked = false
+		ui.announce(&app.announcer, .Good, fmt.tprintf(i18n.tr("%s uninstalled."), p.name))
+	} else {
+		status_destroy(&j.status)
+		reason := uninstall_failure_reason(j.output, j.exit_code)
+		log.errorf("%s: uninstall failed (exit %v):\n%s", p.slug, j.exit_code, j.output)
+		ui.announce(&app.announcer, .Bad, fmt.tprintf(i18n.tr("%s could not be uninstalled: %s"), p.name, reason))
+	}
+}
+
+@(private = "file")
+uninstall_lost :: proc(data: rawptr) {
+	j := (^Uninstall_Job)(data)
+	delete(j.scratch)
+	delete(j.exe)
+	delete(j.output)
+	status_destroy(&j.status)
 	free(j)
 }
 

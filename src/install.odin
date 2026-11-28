@@ -59,6 +59,11 @@ state_choosable :: proc(s: State) -> bool {
 	return s != .Reading && s != .Newer && s != .Unknown
 }
 
+// Whether a program in this state is installed and can be uninstalled from Atelier.
+state_uninstallable :: proc(s: State) -> bool {
+	return s == .Older || s == .Current || s == .Newer || s == .Repair
+}
+
 // atelier's scratch folder: its cache folder (`<cache>/FromentSoftware/Atelier`). Never the system's temporary folder: on
 // many systems it is in memory, and a bundle is more than 100 MB. "": the system names no cache folder.
 scratch_dir :: proc(allocator := context.allocator) -> string {
@@ -130,6 +135,7 @@ status_parse :: proc(code: int, text: string, carried: string, allocator := cont
 	first_line := strings.trim_space(text)
 	if nl := strings.index_byte(first_line, '\n'); nl >= 0 { first_line = first_line[:nl] }
 	code := code
+	s.by_nix = strings.has_suffix(first_line, ": installed by Nix")
 	switch {
 	case strings.has_suffix(first_line, ": installed, to repair"):  code = STATUS_REPAIR
 	case strings.has_suffix(first_line, ": not installed"), strings.has_suffix(first_line, ": uninstalled"): code = STATUS_ABSENT
@@ -249,13 +255,19 @@ install_one :: proc(path: string, allocator := context.allocator) -> (ok: bool, 
 	return code == 0, strings.clone(strings.trim_space(out), allocator), code
 }
 
+// Runs `<path> --uninstall` to its end. Same return shape as install_one.
+uninstall_one :: proc(path: string, allocator := context.allocator) -> (ok: bool, output: string, exit_code: Maybe(int)) {
+	code, out, started := run_captured({path, "--uninstall"})
+	if !started { return false, strings.clone(i18n.tr("The program does not start on this system."), allocator), nil }
+	return code == 0, strings.clone(strings.trim_space(out), allocator), code
+}
+
 // The lines of an install's output that are advice, not a cause: never the reason of a failure.
 @(private = "file", rodata)
 NOISE := [?]string{"a Nix package is the better install"}
 
-// Why a phase failed, in one line (src/md/README.md, "A failed install, again"): the first line of `output` that says
-// something, advice skipped; when there is none, the phase and the exit code. In the temporary memory.
-failure_reason :: proc(output: string, phase: Install_Phase, exit_code: Maybe(int)) -> string {
+@(private = "file")
+first_reason_line :: proc(output: string) -> string {
 	rest := output
 	lines: for line in strings.split_lines_iterator(&rest) {
 		l := strings.trim_space(line)
@@ -263,9 +275,24 @@ failure_reason :: proc(output: string, phase: Install_Phase, exit_code: Maybe(in
 		for n in NOISE { if strings.contains(l, n) { continue lines } }
 		return l
 	}
+	return ""
+}
+
+// Why a phase failed, in one line (src/md/README.md, "A failed install, again"): the first line of `output` that says
+// something, advice skipped; when there is none, the phase and the exit code. In the temporary memory.
+failure_reason :: proc(output: string, phase: Install_Phase, exit_code: Maybe(int)) -> string {
+	if l := first_reason_line(output); l != "" { return l }
 	code, ran := exit_code.?
 	if !ran { return fmt.tprintf(i18n.tr("The %s phase failed: Atelier has no reason for it."), phase_words(phase)) }
 	return fmt.tprintf(i18n.tr("The install did not finish: the program gave no reason. Its exit code: %s"), exit_code_words(code))
+}
+
+// Why an uninstall failed, in one line. In the temporary memory.
+uninstall_failure_reason :: proc(output: string, exit_code: Maybe(int)) -> string {
+	if l := first_reason_line(output); l != "" { return l }
+	code, ran := exit_code.?
+	if !ran { return i18n.tr("The uninstall did not finish: the program gave no reason.") }
+	return fmt.tprintf(i18n.tr("The uninstall did not finish: the program gave no reason. Its exit code: %s"), exit_code_words(code))
 }
 
 // A phase's name, as its stepper's node says it.

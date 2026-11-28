@@ -34,7 +34,7 @@ Each release of Atelier carries the latest release of each program. Its notes sa
 ## How it works
 
 1. **Programs**: each program says what is installed: nothing yet, an older version (ticked: it is updated), or the same
-   version (not ticked).
+   version (not ticked). Installed programs also have an Uninstall button on their row (settings and data stay).
 2. **Licences**: the licence of each program you chose, and of what it includes (icons, fonts).
 3. **Install**: a program that is open is named first, and closed once you agree. Then the programs install themselves
    side by side, each with its steps (close, unpack, install, check), as its own Install button does: its folder in your
@@ -87,6 +87,7 @@ From a terminal, without a window:
 ./atelier-*-linux-x64 install papier classeur
 ./atelier-*-linux-x64 install all
 ./atelier-*-linux-x64 install all --close     # close the programs that are open first (else they are left as they are)
+./atelier-*-linux-x64 uninstall papier        # uninstall one program, or all (--close closes open programs first)
 ./atelier-*-linux-x64 --install             # atelier itself, in your profile, with its menu entry
 ```
 

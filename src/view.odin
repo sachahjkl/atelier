@@ -41,6 +41,7 @@ view_build :: proc(h: ^host.Host, size: host.Vec2) {
 		actions_build(app)
 		setup_build(app)
 		ask_build(app)
+		uninstall_build(app)
 	}
 }
 
@@ -325,7 +326,7 @@ programs_view :: proc(app: ^App, em: f32) {
 	ui.space(ui.LINE_GAP)
 	if ui.list_card("###programs") {
 		for p, i in app.programs {
-			program_row(app, p, &app.rows[i], em)
+			program_row(app, p, &app.rows[i], i, em)
 		}
 	}
 }
@@ -385,7 +386,7 @@ nixos_notice :: proc(app: ^App, em: f32) {
 
 // A program's row of the list: its box, its mark, its name and version, its line, its state at the end.
 @(private = "file")
-program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
+program_row :: proc(app: ^App, p: Program, r: ^Row, index: int, em: f32) {
 	if ui.card_row(fmt.tprintf("###program_%s", p.slug)) {
 		ui.next({width = ui.px(math.round(em * 1.6)), height = ui.px(math.round(em * 2))})
 		if ui.disabled(!row_choosable(app, r^)) { ui.checkbox("###box", "", &r.ticked) }
@@ -428,7 +429,26 @@ program_row :: proc(app: ^App, p: Program, r: ^Row, em: f32) {
 			}
 		}
 		ui.space(ui.SPACE_4)
-		state_badge(app, r^, em)
+		if r.uninstalling {
+			ui.spinner("###uninstalling", math.round(em * 1.1))
+			ui.space(ui.ICON_GAP)
+			if ui.tags("weak") {
+				ui.next({width = ui.text_size(), height = ui.px(math.round(em * 2)), text_pad = 0})
+				ui.label(fmt.tprintf("%s###uninstalling_words", i18n.tr("Uninstalling…")))
+			}
+		} else {
+			state_badge(app, r^, em)
+			if row_uninstallable(app, r^) {
+				ui.space(ui.CONTROL_GAP)
+				if ui.button(fmt.tprintf("###uninstall_%s", p.slug), icon = lucide.TRASH_2, o = {
+					icon_font = ui.lucide_icons(), quiet = true,
+					disabled = app.uninstall_ask != .Idle,
+					tip = fmt.tprintf(i18n.tr("Uninstall %s"), p.name),
+				}).clicked {
+					uninstall_ask(app, index)
+				}
+			}
+		}
 	}
 }
 
