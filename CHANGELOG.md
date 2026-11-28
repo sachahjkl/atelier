@@ -5,6 +5,12 @@ All notable changes to atelier are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-11-28 10:32
+
+### Added
+- **Uninstall from Atelier**: each installed program now has an Uninstall button on its row in the Programs step, with confirmation (closing an open program first when needed) and keeping your settings and data. From the command line, `atelier uninstall <program>… | all [--close]` does the same without a window.
+- **Plume and Galerie in the suite**: Atelier now carries Plume and Galerie, on Linux and Windows, and shows every program's name with consistent capitalisation (Papier, Classeur, Cliche, Inspecteur, Feuille, Plume, Galerie, Tower). Inspecteur is now carried on Windows as well as Linux.
+
 ## [0.9.12] - 2026-11-28 05:19
 
 ### Changed
@@ -225,6 +231,7 @@ its licences and its install, as each program of the suite; the Done step says t
 ### Added
 - **atelier, the working man's tools**: one download carries papier, classeur, cliche, inspecteur (Linux) and opencode native. Choose the programs, read their licences, and each one installs itself at once; a program already installed at the same version stays as it is, an older one is updated. `atelier list` and `atelier install <program>… | all` do the same without a window. A new atelier is published on the day a program publishes a new version.
 
+[0.10.0]: https://github.com/sachahjkl/atelier/releases/tag/v0.10.0
 [0.9.12]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.12
 [0.9.11]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.11
 [0.9.10]: https://github.com/sachahjkl/atelier/releases/tag/v0.9.10
