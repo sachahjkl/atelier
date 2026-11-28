@@ -13,7 +13,7 @@
   <a class="brand" href="#"><img src="img/logo.png" alt="" width="28" height="28"><span>Atelier</span></a>
   <button class="burger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav"><span></span></button>
   <nav id="nav">
-    <a href="#features">How it works</a>
+    <a href="#apps">Apps</a>
     <a href="#download">Download</a>
     <a href="changelog/">Changelog</a>
     <a href="https://github.com/sachahjkl/atelier">GitHub</a>
@@ -22,23 +22,21 @@
 
 <main>
   <section class="hero">
-    <img class="mark" src="img/logo.png" alt="The Atelier logo: an orange toolbox with a steel handle and latch" width="112" height="112">
+    <img class="mark" src="img/logo.png" alt="Atelier" width="112" height="112">
     <h1>Atelier</h1>
     <p class="lead">Installer and updater for Froment Software apps.</p>
     <div class="actions">
       <!-- download -->
-      <a class="btn" href="https://github.com/sachahjkl/atelier">Source on GitHub</a>
+      <a class="btn" href="https://github.com/sachahjkl/atelier">GitHub</a>
     </div>
-    <p class="small"><!-- download-others --> &nbsp;·&nbsp; one file, no network needed &nbsp;·&nbsp; MIT</p>
+    <p class="small"><!-- download-others --> &nbsp;·&nbsp; offline &nbsp;·&nbsp; MIT</p>
   </section>
 
   <figure class="shot wide">
-    <a class="frame" href="img/main.png"><img src="img/main.png" alt="Atelier's window on the Programs step: nine programs, each with its logo, its version and a box to tick" loading="lazy"></a>
-    <figcaption>Tick what you want. What is already installed at the same version stays as it is.</figcaption>
+    <a class="frame" href="img/main.png"><img src="img/main.png" alt="Atelier: Programs" loading="lazy"></a>
   </figure>
 
-  <h2 id="tools" class="section-title">The tools in the box</h2>
-  <p class="section-lead">Native programs, each a single file of a few megabytes, at 0&nbsp;% CPU when they wait. Each one updates itself once installed.</p>
+  <h2 id="apps" class="section-title">Apps</h2>
   <section class="suite">
     <a class="tool" href="https://papier.froment.software/"><img src="img/programs/papier.png" alt=""><strong>Papier</strong><span>Clipboard manager</span><em>Linux · Windows</em></a>
     <a class="tool" href="https://classeur.froment.software/"><img src="img/programs/classeur.png" alt=""><strong>Classeur</strong><span>File manager</span><em>Linux · Windows</em></a>
@@ -53,37 +51,25 @@
 
   <section id="features" class="grid">
     <article class="card">
-      <h3>One file</h3>
-      <p>The download carries every program at the version of its own release. It installs without the network.</p>
+      <h3>Offline</h3>
+      <p>Single executable bundle. No network required.</p>
     </article>
     <article class="card">
-      <h3>You choose</h3>
-      <p>Each program shows what is installed: not yet, an older version to update, or already current.</p>
+      <h3>User profile</h3>
+      <p>Installs per user. No administrator privileges.</p>
     </article>
     <article class="card">
-      <h3>The licences, first</h3>
-      <p>Before anything is written, you read the licence of each program and of what it includes.</p>
-    </article>
-    <article class="card">
-      <h3>Installed as they install themselves</h3>
-      <p>Atelier runs each program's own <code>--install</code>: the same folder, menu entry and uninstaller as its own Install button.</p>
-    </article>
-    <article class="card">
-      <h3>For you alone</h3>
-      <p>Everything goes in your profile. No administrator, no service, nothing in the system's folders.</p>
-    </article>
-    <article class="card">
-      <h3>From a script too</h3>
-      <p><code>atelier list</code> says what it carries; <code>atelier install all</code> installs without a window.</p>
+      <h3>CLI</h3>
+      <p><code>atelier list</code> · <code>atelier install all</code> · <code>atelier uninstall</code></p>
     </article>
   </section>
 
   <!-- whats-new -->
 
   <section class="gallery">
-    <figure class="shot"><a class="frame" href="img/licences.png"><img src="img/licences.png" alt="The Licences step: the licence of each chosen program, its text in a scroll view" loading="lazy"></a><figcaption>The licences of what you chose</figcaption></figure>
-    <figure class="shot"><a class="frame" href="img/installing.png"><img src="img/installing.png" alt="The Install step: every program installing at once, each with its steps: unpack, install, check" loading="lazy"></a><figcaption>Side by side, each with its steps</figcaption></figure>
-    <figure class="shot"><a class="frame" href="img/done.png"><img src="img/done.png" alt="The Install step once over: each program installed, its folder and a button to open it" loading="lazy"></a><figcaption>Open what you installed</figcaption></figure>
+    <figure class="shot"><a class="frame" href="img/licences.png"><img src="img/licences.png" alt="Licences" loading="lazy"></a><figcaption>Licences</figcaption></figure>
+    <figure class="shot"><a class="frame" href="img/installing.png"><img src="img/installing.png" alt="Install" loading="lazy"></a><figcaption>Install</figcaption></figure>
+    <figure class="shot"><a class="frame" href="img/done.png"><img src="img/done.png" alt="Done" loading="lazy"></a><figcaption>Done</figcaption></figure>
   </section>
 
   <section id="download" class="download">
@@ -91,27 +77,26 @@
     <div class="cols">
       <div class="well">
         <h3>Windows</h3>
-        <p>One program for Windows 10 and 11 (x64). Start it to choose and install every program of the suite.</p>
+        <p>Windows 10 / 11 (x64)</p>
         <code><a href="https://github.com/sachahjkl/atelier/releases/download/v{{version}}/atelier-{{version}}-windows-x64.exe">atelier-{{version}}-windows-x64.exe</a></code>
       </div>
       <div class="well">
         <h3>Linux</h3>
-        <p>One program for Linux x64. Make it executable and start it: <code>chmod +x atelier-*-linux-x64</code>.</p>
+        <p>Linux x64 (<code>chmod +x</code>)</p>
         <code><a href="https://github.com/sachahjkl/atelier/releases/download/v{{version}}/atelier-{{version}}-linux-x64">atelier-{{version}}-linux-x64</a></code>
       </div>
       <div class="well">
         <h3>NixOS</h3>
-        <p>Nix installs and updates each program from its flake. Atelier shows the line of each one.</p>
+        <p>Per-app flake</p>
         <code>nix profile add github:sachahjkl/papier</code>
       </div>
     </div>
-    <p class="small">Each release says the version of every program it carries. The <a href="https://github.com/sachahjkl/atelier#readme">README</a> says the rest.</p>
   </section>
 </main>
 
 <footer>
   <p class="by">By <span class="maker"><img src="img/froment-software-64.png" alt="" width="16" height="16"><a href="https://froment.software">Froment Software</a></span></p>
-  <p class="small"><span>MIT licence</span> · <span>Built in <a href="https://odin-lang.org">Odin</a> on <a href="https://gt.sacha.house/">gui_toolkit</a></span> · <a href="classic/">Classic version</a></p>
+  <p class="small"><span>MIT</span> · <span><a href="https://odin-lang.org">Odin</a> / <a href="https://gt.sacha.house/">gui_toolkit</a></span> · <a href="classic/">Classic version</a></p>
 </footer>
 <script>
   const bar = document.querySelector('.bar'), burger = bar.querySelector('.burger');
