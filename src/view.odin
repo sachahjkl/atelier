@@ -249,7 +249,7 @@ by_line :: proc(app: ^App, em: f32) {
 // What atelier is, on the page itself (no frame: it is the page's head), then the programs it carries in one list.
 @(private = "file")
 welcome_view :: proc(app: ^App, em: f32) {
-	// atelier's mark, its name and its line: what this window is
+	// atelier's mark, its name and who makes it
 	line_next()
 	if ui.row(.Center, id = "###head") {
 		if app.logo_size != {} {
@@ -260,10 +260,6 @@ welcome_view :: proc(app: ^App, em: f32) {
 		if ui.column(id = "###words") {
 			ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.9)), font_size = math.round(em * 1.45), text_pad = 0})
 			ui.label(APP_TITLE + "###name")
-			if ui.tags("weak") {
-				ui.next({width = ui.fill(), height = ui.px(math.round(em * 1.4)), font_size = math.round(em * 0.9), text_pad = 0})
-				ui.label(fmt.tprintf("%s###line", i18n.tr("App manager")))
-			}
 			by_line(app, em)
 		}
 	}
