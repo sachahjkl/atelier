@@ -28,7 +28,7 @@ licences, and they install at once.
 | [Plume](https://plume.froment.software/) | Text editor | Linux, Windows |
 | [Galerie](https://galerie.froment.software/) | Image viewer | Linux, Windows |
 | [Ardoise](https://ardoise.froment.software/) | Terminal | Linux, Windows |
-| [Tower](https://tower.froment.software/) | OpenCode client | Linux, Windows |
+| [Tower](https://tower.froment.software/) | Coding agent client | Linux, Windows |
 
 Each release of Atelier carries the latest release of each program. Its notes say which versions.
 

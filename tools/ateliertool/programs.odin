@@ -24,7 +24,7 @@ PROGRAMS := [?]Suite_Program{
 	{slug = "plume", repository = "plume", name = "Plume", tagline = "Text editor", site = "https://plume.froment.software/"},
 	{slug = "galerie", repository = "galerie", name = "Galerie", tagline = "Image viewer", site = "https://galerie.froment.software/"},
 	{slug = "ardoise", repository = "ardoise", name = "Ardoise", tagline = "Terminal", site = "https://ardoise.froment.software/"},
-	{slug = "tower", repository = "tower", name = "Tower", tagline = "OpenCode client", site = "https://tower.froment.software/"},
+	{slug = "tower", repository = "tower", name = "Tower", tagline = "Coding agent client", site = "https://tower.froment.software/"},
 }
 
 // The platforms a bundle is made for, as the releases name them.
